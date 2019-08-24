@@ -18,7 +18,7 @@ type Trigger interface {
 
 // Runner will run jobs
 type Runner interface {
-	Start(string)
+	Execute(string)
 }
 
 type job struct {
@@ -73,12 +73,12 @@ func (h *herald) start(ctx context.Context) {
 
 			name := names[chosen-1]
 
-			log.Printf("Start to run %s...\n", name)
+			log.Printf("Start to execute %s...\n", name)
 
 			go func() {
 				h.wg.Add(1)
 				defer h.wg.Done()
-				h.jobs[name].runner.Start(value.String())
+				h.jobs[name].runner.Execute(value.String())
 			}()
 		}
 	}()

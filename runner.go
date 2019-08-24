@@ -7,6 +7,6 @@ import (
 type runnerLocal struct {
 }
 
-func (r *runnerLocal) Start(param string) {
-	log.Printf("Run with param: %s\n", param)
+func (r *runnerLocal) Execute(param string) {
+	log.Printf("Execute with param: %s\n", param)
 }
