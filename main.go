@@ -1,83 +1,130 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/signal"
+	"reflect"
+	"sync"
 	"syscall"
 	"time"
 )
 
 // Trigger should send trigger events to the core
 type Trigger interface {
-	Init()
-	Start()
+	Start(context.Context, chan string)
 }
 
 // Runner will run jobs
 type Runner interface {
-	Run()
+	Start(string)
+}
+
+type job struct {
+	trigger Trigger
+	runner  Runner
+	param   chan string
+	nn      string
 }
 
 type herald struct {
-	param    chan string
-	stopChan chan struct{}
-	quitChan chan struct{}
-	triggers map[string]Trigger
-	runners  map[string]Runner
+	wg   sync.WaitGroup
+	jobs map[string]*job
 }
 
-func (h *herald) addTrigger(t Trigger) {
+func (h *herald) addJob(name string, j *job) {
+	h.jobs[name] = j
 }
 
-func (h *herald) addRunner(r Runner) {
-}
-
-func (h *herald) start() {
+func (h *herald) start(ctx context.Context) {
 	go func() {
-		h.stopChan = make(chan struct{})
-		h.quitChan = make(chan struct{})
+		h.wg.Add(1)
+		defer h.wg.Done()
 
-		defer func() {
-			close(h.quitChan)
-		}()
+		var names []string
+		var cases []reflect.SelectCase
+
+		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())})
+
+		for name, j := range h.jobs {
+			j.param = make(chan string)
+
+			log.Printf("Start trigger %s...\n", name)
+
+			go func(j *job) {
+				h.wg.Add(1)
+				defer h.wg.Done()
+				j.trigger.Start(ctx, j.param)
+			}(j)
+
+			names = append(names, name)
+			cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(j.param)})
+		}
+
+		log.Println("Waiting for triggers...")
 
 		for {
-			select {
-			case <-h.stopChan:
+			chosen, value, _ := reflect.Select(cases)
+
+			if chosen == 0 {
 				log.Println("Stop herald...")
 				return
-			default:
-				log.Println("In herald...")
-				time.Sleep(2 * time.Second)
 			}
+
+			name := names[chosen-1]
+
+			log.Printf("Start to run %s...\n", name)
+
+			go func() {
+				h.wg.Add(1)
+				defer h.wg.Done()
+				h.jobs[name].runner.Start(value.String())
+			}()
 		}
 	}()
 }
 
-func (h *herald) stop() {
-	close(h.stopChan)
-
-	select {
-	case <-h.quitChan:
-		log.Println("Wait to stop...")
-	}
+func (h *herald) wait() {
+	h.wg.Wait()
 }
 
 func main() {
-	h := &herald{}
+	h := &herald{
+		jobs: make(map[string]*job),
+	}
 
-	h.addTrigger(&triggerCron{})
-	h.addRunner(&runnerLocal{})
+	j := &job{
+		trigger: &triggerTick{
+			interval: 2 * time.Second,
+		},
+		runner: &runnerLocal{},
+		nn:     "111",
+	}
+	h.addJob("first", j)
 
-	h.start()
+	j2 := &job{
+		trigger: &triggerTick{
+			interval: 3 * time.Second,
+		},
+		runner: &runnerLocal{},
+		nn:     "222",
+	}
+	h.addJob("second", j2)
+
+	ctx := context.Background()
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	h.start(ctx)
 
 	quit := make(chan os.Signal)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
 	log.Println("Shutdown...")
 
-	h.stop()
+	cancel()
 
+	h.wait()
 	log.Println("Exiting...")
 }

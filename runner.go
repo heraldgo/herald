@@ -1,8 +1,12 @@
 package main
 
+import (
+	"log"
+)
+
 type runnerLocal struct {
-	jj int
 }
 
-func (r *runnerLocal) Run() {
+func (r *runnerLocal) Start(param string) {
+	log.Printf("Run with param: %s\n", param)
 }
