@@ -1,2 +1,3 @@
-# herald
-Herald is a tool for dispatching server maintenance requests
+# Herald
+
+Herald is a tool for dispatching server maintenance tasks.
