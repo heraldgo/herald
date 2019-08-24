@@ -25,7 +25,6 @@ type job struct {
 	trigger Trigger
 	runner  Runner
 	param   chan string
-	nn      string
 }
 
 type herald struct {
@@ -99,7 +98,6 @@ func main() {
 			interval: 2 * time.Second,
 		},
 		runner: &runnerLocal{},
-		nn:     "111",
 	}
 	h.addJob("first", j)
 
@@ -108,7 +106,6 @@ func main() {
 			interval: 3 * time.Second,
 		},
 		runner: &runnerLocal{},
-		nn:     "222",
 	}
 	h.addJob("second", j2)
 
