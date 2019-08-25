@@ -10,11 +10,7 @@ import (
 )
 
 func main() {
-	h := &herald{
-		triggers: make(map[string]Trigger),
-		runners:  make(map[string]Runner),
-		jobs:     make(map[string]*job),
-	}
+	h := New()
 
 	h.addTrigger("Trigger2s", &triggerTick{
 		interval: 2 * time.Second,

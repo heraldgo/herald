@@ -22,29 +22,30 @@ type job struct {
 	runner  string
 }
 
-type herald struct {
+// Herald is the core struct
+type Herald struct {
 	wg       sync.WaitGroup
 	triggers map[string]Trigger
 	runners  map[string]Runner
 	jobs     map[string]*job
 }
 
-func (h *herald) addTrigger(name string, t Trigger) {
+func (h *Herald) addTrigger(name string, t Trigger) {
 	h.triggers[name] = t
 }
 
-func (h *herald) addRunner(name string, r Runner) {
+func (h *Herald) addRunner(name string, r Runner) {
 	h.runners[name] = r
 }
 
-func (h *herald) addJob(name, trigger, runner string) {
+func (h *Herald) addJob(name, trigger, runner string) {
 	h.jobs[name] = &job{
 		trigger: trigger,
 		runner:  runner,
 	}
 }
 
-func (h *herald) start(ctx context.Context) {
+func (h *Herald) start(ctx context.Context) {
 	go func() {
 		h.wg.Add(1)
 		defer h.wg.Done()
@@ -104,6 +105,15 @@ func (h *herald) start(ctx context.Context) {
 	}()
 }
 
-func (h *herald) wait() {
+func (h *Herald) wait() {
 	h.wg.Wait()
+}
+
+// New will create a new Herald instance
+func New() *Herald {
+	return &Herald{
+		triggers: make(map[string]Trigger),
+		runners:  make(map[string]Runner),
+		jobs:     make(map[string]*job),
+	}
 }
