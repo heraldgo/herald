@@ -78,7 +78,7 @@ func (h *herald) start(ctx context.Context) {
 			go func() {
 				h.wg.Add(1)
 				defer h.wg.Done()
-				h.jobs[name].runner.Execute(value.String())
+				h.jobs[name].runner.Execute(value.Interface().(string))
 			}()
 		}
 	}()
