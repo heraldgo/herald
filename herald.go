@@ -70,13 +70,13 @@ func (h *Herald) AddRouter(name string, triggers []string, filter string, param 
 	}
 
 	var availTriggers []string
-	for _, trg := range triggers {
-		_, ok := h.triggers[trg]
+	for _, tgr := range triggers {
+		_, ok := h.triggers[tgr]
 		if !ok {
-			log.Printf("Trigger not found and will be ignored: %s\n", trg)
+			log.Printf("Trigger not found and will be ignored: %s\n", tgr)
 			continue
 		}
-		availTriggers = append(availTriggers, trg)
+		availTriggers = append(availTriggers, tgr)
 	}
 
 	h.routers[name] = &router{
