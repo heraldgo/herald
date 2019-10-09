@@ -1,3 +1,3 @@
 # Herald
 
-Herald is a tool for dispatching server maintenance tasks.
+Herald is a library for managing server maintenance tasks.
