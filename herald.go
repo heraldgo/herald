@@ -44,6 +44,24 @@ type Herald struct {
 	routers   map[string]*router
 }
 
+// GetTrigger will add a trigger
+func (h *Herald) GetTrigger(name string) (Trigger, bool) {
+	tgr, ok := h.triggers[name]
+	return tgr, ok
+}
+
+// GetExecutor will add a executor
+func (h *Herald) GetExecutor(name string) (Executor, bool) {
+	exe, ok := h.executors[name]
+	return exe, ok
+}
+
+// GetFilter will add a filter
+func (h *Herald) GetFilter(name string) (Filter, bool) {
+	flt, ok := h.filters[name]
+	return flt, ok
+}
+
 // AddTrigger will add a trigger
 func (h *Herald) AddTrigger(name string, tgr Trigger) {
 	h.triggers[name] = tgr
