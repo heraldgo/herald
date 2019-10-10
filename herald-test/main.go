@@ -11,6 +11,28 @@ import (
 	"github.com/xianghuzhao/herald"
 )
 
+type logger struct{}
+
+// Debugf is an empty implementation
+func (l *logger) Debugf(f string, v ...interface{}) {
+	log.Printf(f, v...)
+}
+
+// Infof is an empty implementation
+func (l *logger) Infof(f string, v ...interface{}) {
+	log.Printf(f, v...)
+}
+
+// Warnf is an empty implementation
+func (l *logger) Warnf(f string, v ...interface{}) {
+	log.Printf(f, v...)
+}
+
+// Errorf is an empty implementation
+func (l *logger) Errorf(f string, v ...interface{}) {
+	log.Printf(f, v...)
+}
+
 type tick struct {
 	Interval time.Duration
 	counter  int
@@ -62,6 +84,8 @@ func (flt *skip) Filter(triggerParam, filterParam map[string]interface{}) (map[s
 
 func newHerald() *herald.Herald {
 	h := herald.New()
+
+	h.Log = &logger{}
 
 	h.AddTrigger("tick", &tick{
 		Interval: 2 * time.Second,

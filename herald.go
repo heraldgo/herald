@@ -2,10 +2,31 @@ package herald
 
 import (
 	"context"
-	"log"
 	"reflect"
 	"sync"
 )
+
+// Logger is an interface for common log
+type Logger interface {
+	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
+	Warnf(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
+type emptyLogger struct{}
+
+// Debugf is an empty implementation
+func (l *emptyLogger) Debugf(string, ...interface{}) {}
+
+// Infof is an empty implementation
+func (l *emptyLogger) Infof(string, ...interface{}) {}
+
+// Warnf is an empty implementation
+func (l *emptyLogger) Warnf(string, ...interface{}) {}
+
+// Errorf is an empty implementation
+func (l *emptyLogger) Errorf(string, ...interface{}) {}
 
 // Trigger should send trigger events to the core
 type Trigger interface {
@@ -35,6 +56,7 @@ type router struct {
 
 // Herald is the core struct
 type Herald struct {
+	Log       Logger
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
 	triggers  map[string]Trigger
@@ -82,7 +104,7 @@ func (h *Herald) AddRouter(name string, triggers []string, filter string, param 
 	if filter != "" {
 		_, ok := h.filters[filter]
 		if !ok {
-			log.Printf("Filter not found : %s\n", filter)
+			h.Log.Errorf("Filter not found : %s\n", filter)
 			return
 		}
 	}
@@ -91,7 +113,7 @@ func (h *Herald) AddRouter(name string, triggers []string, filter string, param 
 	for _, tgr := range triggers {
 		_, ok := h.triggers[tgr]
 		if !ok {
-			log.Printf("Trigger not found and will be ignored: %s\n", tgr)
+			h.Log.Errorf("Trigger not found and will be ignored: %s\n", tgr)
 			continue
 		}
 		availTriggers = append(availTriggers, tgr)
@@ -109,7 +131,7 @@ func (h *Herald) AddRouter(name string, triggers []string, filter string, param 
 func (h *Herald) AddRouterJob(routerName, jobName string, executors []string) {
 	_, ok := h.routers[routerName]
 	if !ok {
-		log.Printf("Router not found : %s\n", routerName)
+		h.Log.Errorf("Router not found : %s\n", routerName)
 		return
 	}
 
@@ -117,7 +139,7 @@ func (h *Herald) AddRouterJob(routerName, jobName string, executors []string) {
 	for _, exe := range executors {
 		_, ok := h.executors[exe]
 		if !ok {
-			log.Printf("Executor not found and will be ignored: %s\n", exe)
+			h.Log.Errorf("Executor not found and will be ignored: %s\n", exe)
 			continue
 		}
 		availExecutors = append(availExecutors, exe)
@@ -153,7 +175,7 @@ func (h *Herald) Start() {
 	for triggerName, tgr := range h.triggers {
 		param := make(chan map[string]interface{})
 
-		log.Printf("Start trigger %s...\n", triggerName)
+		h.Log.Infof("Start trigger %s...\n", triggerName)
 
 		go func(tgr Trigger) {
 			h.wg.Add(1)
@@ -165,26 +187,26 @@ func (h *Herald) Start() {
 		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(param)})
 	}
 
-	log.Println("Start to wait for triggers activation...")
+	h.Log.Infof("Start to wait for triggers activation...\n")
 
 	for {
 		chosen, value, _ := reflect.Select(cases)
 
 		if chosen == 0 {
-			log.Println("Stop herald...")
+			h.Log.Infof("Stop herald...\n")
 			return
 		}
 
 		var triggerName string
 
 		if chosen == 1 {
-			log.Println("Execution finished ...")
+			h.Log.Infof("Execution finished ...\n")
 			triggerName = "execution_done"
 		} else {
 			triggerName = triggerNames[chosen-triggerChanStartIndex]
 		}
 
-		log.Printf("Trigger active: \"%s\"\n", triggerName)
+		h.Log.Infof("Trigger active: \"%s\"\n", triggerName)
 
 		triggerValue := value.Interface().(map[string]interface{})
 
@@ -220,7 +242,7 @@ func (h *Herald) Start() {
 				}
 
 				for _, executorName := range executors {
-					log.Printf("Execute job \"%s\" with executor: %s\n", j, executorName)
+					h.Log.Infof("Execute job \"%s\" with executor: %s\n", j, executorName)
 					go func(exe Executor, param map[string]interface{}) {
 						h.wg.Add(1)
 						defer h.wg.Done()
@@ -236,7 +258,7 @@ func (h *Herald) Start() {
 // Stop will stop the server and wait for all triggers and executors to exit
 func (h *Herald) Stop() {
 	if h.cancel == nil {
-		log.Printf("Herald is not started")
+		h.Log.Warnf("Herald is not started\n")
 		return
 	}
 
@@ -249,6 +271,7 @@ func (h *Herald) Stop() {
 // New will create a new empty Herald instance
 func New() *Herald {
 	return &Herald{
+		Log:       &emptyLogger{},
 		triggers:  make(map[string]Trigger),
 		executors: make(map[string]Executor),
 		filters:   make(map[string]Filter),
