@@ -51,10 +51,12 @@ func (tgr *tick) Run(ctx context.Context, param chan map[string]interface{}) {
 	}
 }
 
-type printParam struct{}
+type printParam struct {
+	Log herald.Logger
+}
 
 func (exe *printParam) Execute(param map[string]interface{}) map[string]interface{} {
-	log.Printf("[Executor:Print] Execute with param:\n%#v\n", param)
+	exe.Log.Infof("[Executor:Print] Execute with param:\n%#v\n", param)
 	return nil
 }
 
@@ -91,7 +93,9 @@ func newHerald() *herald.Herald {
 		Interval: 2 * time.Second,
 	})
 
-	h.AddExecutor("print", &printParam{})
+	h.AddExecutor("print", &printParam{
+		Log: h.Log,
+	})
 
 	h.AddFilter("skip", &skip{})
 
