@@ -235,10 +235,13 @@ func (h *Herald) Start() {
 				}
 
 				if r.filter != "" {
-					exeParam, ok = h.filters[r.filter].Filter(triggerValue, exeParam)
+					triggerValue, ok = h.filters[r.filter].Filter(triggerValue, exeParam)
 					if !ok {
 						continue
 					}
+				}
+				for k, v := range triggerValue {
+					exeParam[k] = v
 				}
 
 				for _, executorName := range executors {
