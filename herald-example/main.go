@@ -11,27 +11,29 @@ import (
 	"github.com/xianghuzhao/herald"
 )
 
-type logger struct{}
+type loggerSimple struct{}
 
-// Debugf is an empty implementation
-func (l *logger) Debugf(f string, v ...interface{}) {
-	log.Printf(f, v...)
+// Debugf is a simple implementation
+func (l *loggerSimple) Debugf(f string, v ...interface{}) {
+	log.Printf("[DEBUG] "+f, v...)
 }
 
-// Infof is an empty implementation
-func (l *logger) Infof(f string, v ...interface{}) {
-	log.Printf(f, v...)
+// Infof is a simple implementation
+func (l *loggerSimple) Infof(f string, v ...interface{}) {
+	log.Printf("[INFO] "+f, v...)
 }
 
-// Warnf is an empty implementation
-func (l *logger) Warnf(f string, v ...interface{}) {
-	log.Printf(f, v...)
+// Warnf is a simple implementation
+func (l *loggerSimple) Warnf(f string, v ...interface{}) {
+	log.Printf("[WARN] "+f, v...)
 }
 
-// Errorf is an empty implementation
-func (l *logger) Errorf(f string, v ...interface{}) {
-	log.Printf(f, v...)
+// Errorf is a simple implementation
+func (l *loggerSimple) Errorf(f string, v ...interface{}) {
+	log.Printf("[ERROR] "+f, v...)
 }
+
+var logger herald.Logger
 
 type tick struct {
 	interval time.Duration
@@ -56,7 +58,7 @@ type printParam struct {
 }
 
 func (exe *printParam) Execute(param map[string]interface{}) map[string]interface{} {
-	exe.logger.Infof("[Executor:Print] Execute with param:\n%#v\n", param)
+	exe.logger.Infof("[Executor:Print] Execute with param:\n%#v", param)
 	return nil
 }
 
@@ -87,14 +89,14 @@ func (flt *skip) Filter(triggerParam, filterParam map[string]interface{}) (map[s
 func newHerald() *herald.Herald {
 	h := herald.New()
 
-	h.Log = &logger{}
+	h.Log = logger
 
 	h.AddTrigger("tick", &tick{
 		interval: 2 * time.Second,
 	})
 
 	h.AddExecutor("print", &printParam{
-		logger: h.Log,
+		logger: logger,
 	})
 
 	h.AddFilter("skip", &skip{})
@@ -109,6 +111,8 @@ func newHerald() *herald.Herald {
 }
 
 func main() {
+	logger = &loggerSimple{}
+
 	h := newHerald()
 
 	go h.Start()
@@ -116,9 +120,9 @@ func main() {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
-	log.Println("Shutdown...")
+	logger.Infof("Shutdown...")
 
 	h.Stop()
 
-	log.Println("Exiting...")
+	logger.Infof("Exiting...")
 }
