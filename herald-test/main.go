@@ -34,12 +34,12 @@ func (l *logger) Errorf(f string, v ...interface{}) {
 }
 
 type tick struct {
-	Interval time.Duration
+	interval time.Duration
 	counter  int
 }
 
 func (tgr *tick) Run(ctx context.Context, param chan map[string]interface{}) {
-	ticker := time.NewTicker(tgr.Interval)
+	ticker := time.NewTicker(tgr.interval)
 	for {
 		select {
 		case <-ctx.Done():
@@ -52,11 +52,11 @@ func (tgr *tick) Run(ctx context.Context, param chan map[string]interface{}) {
 }
 
 type printParam struct {
-	Log herald.Logger
+	logger herald.Logger
 }
 
 func (exe *printParam) Execute(param map[string]interface{}) map[string]interface{} {
-	exe.Log.Infof("[Executor:Print] Execute with param:\n%#v\n", param)
+	exe.logger.Infof("[Executor:Print] Execute with param:\n%#v\n", param)
 	return nil
 }
 
@@ -90,11 +90,11 @@ func newHerald() *herald.Herald {
 	h.Log = &logger{}
 
 	h.AddTrigger("tick", &tick{
-		Interval: 2 * time.Second,
+		interval: 2 * time.Second,
 	})
 
 	h.AddExecutor("print", &printParam{
-		Log: h.Log,
+		logger: h.Log,
 	})
 
 	h.AddFilter("skip", &skip{})
