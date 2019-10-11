@@ -208,7 +208,7 @@ func (h *Herald) Start() {
 
 		h.Log.Infof("Trigger active: \"%s\"", triggerName)
 
-		triggerValue := value.Interface().(map[string]interface{})
+		triggerParam := value.Interface().(map[string]interface{})
 
 		for _, r := range h.routers {
 			triggerMatched := false
@@ -234,13 +234,16 @@ func (h *Herald) Start() {
 					}
 				}
 
+				var filterParam map[string]interface{}
 				if r.filter != "" {
-					triggerValue, ok = h.filters[r.filter].Filter(triggerValue, exeParam)
+					filterParam, ok = h.filters[r.filter].Filter(triggerParam, exeParam)
 					if !ok {
 						continue
 					}
+				} else {
+					filterParam = triggerParam
 				}
-				for k, v := range triggerValue {
+				for k, v := range filterParam {
 					exeParam[k] = v
 				}
 
