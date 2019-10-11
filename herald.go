@@ -210,7 +210,7 @@ func (h *Herald) Start() {
 
 		triggerParam := value.Interface().(map[string]interface{})
 
-		for _, r := range h.routers {
+		for routerName, r := range h.routers {
 			triggerMatched := false
 			for _, t := range r.triggers {
 				if t == triggerName {
@@ -222,20 +222,21 @@ func (h *Herald) Start() {
 				continue
 			}
 
-			for j, executors := range r.jobs {
+			for jobName, executors := range r.jobs {
 				exeParam := make(map[string]interface{})
 				for k, v := range r.param {
 					exeParam[k] = v
 				}
-				_, ok := h.jobs[j]
+				_, ok := h.jobs[jobName]
 				if ok {
-					for k, v := range h.jobs[j].param {
+					for k, v := range h.jobs[jobName].param {
 						exeParam[k] = v
 					}
 				}
 
 				var filterParam map[string]interface{}
 				if r.filter != "" {
+					h.Log.Infof("[Router:%s] Run filter \"%s\" with trigger \"%s\" for job \"%s\"", routerName, r.filter, triggerName, jobName)
 					filterParam, ok = h.filters[r.filter].Filter(triggerParam, exeParam)
 					if !ok {
 						continue
@@ -248,7 +249,7 @@ func (h *Herald) Start() {
 				}
 
 				for _, executorName := range executors {
-					h.Log.Infof("[Executor:%s] Execute job \"%s\"", executorName, j)
+					h.Log.Infof("[Router:%s] Execute job \"%s\" with executor \"%s\"", routerName, jobName, executorName)
 					go func(exe Executor, param map[string]interface{}) {
 						h.wg.Add(1)
 						defer h.wg.Done()

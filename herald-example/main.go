@@ -58,7 +58,7 @@ type printParam struct {
 }
 
 func (exe *printParam) Execute(param map[string]interface{}) map[string]interface{} {
-	exe.logger.Infof("[Executor:Print] Execute with param: %#v", param)
+	exe.logger.Infof("[Executor(Print)] Execute with param: %#v", param)
 	return nil
 }
 
@@ -92,7 +92,7 @@ func newHerald() *herald.Herald {
 	h.Log = logger
 
 	h.AddTrigger("tick", &tick{
-		interval: 2 * time.Second,
+		interval: 3 * time.Second,
 	})
 
 	h.AddExecutor("print", &printParam{
@@ -102,7 +102,7 @@ func newHerald() *herald.Herald {
 	h.AddFilter("skip", &skip{})
 
 	h.AddRouter("skip_test", []string{"tick"}, "skip", map[string]interface{}{
-		"skip_number": 3,
+		"skip_number": 2,
 	})
 
 	h.AddRouterJob("skip_test", "print", []string{"print"})
