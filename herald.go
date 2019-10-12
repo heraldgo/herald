@@ -19,6 +19,27 @@ type Trigger interface {
 	Run(context.Context, chan map[string]interface{})
 }
 
+const triggerExecutionDoneName = "exe_done"
+
+type executionDone struct {
+	logger   Logger
+	exeParam chan map[string]interface{}
+}
+
+// Run start the execution done trigger
+func (tgr *executionDone) Run(ctx context.Context, param chan map[string]interface{}) {
+	for {
+		select {
+		case <-ctx.Done():
+			tgr.logger.Infof("[Trigger(ExecutionDone)] Exit ...")
+			return
+		case ep := <-tgr.exeParam:
+			tgr.logger.Infof("[Trigger(ExecutionDone)] Previous execution finished")
+			param <- ep
+		}
+	}
+}
+
 // Executor will do the execution
 type Executor interface {
 	Execute(param map[string]interface{}) map[string]interface{}
@@ -42,9 +63,10 @@ type router struct {
 
 // Herald is the core struct
 type Herald struct {
-	Log       Logger
+	logger    Logger
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
+	exeDone   chan map[string]interface{}
 	triggers  map[string]Trigger
 	executors map[string]Executor
 	filters   map[string]Filter
@@ -53,26 +75,26 @@ type Herald struct {
 }
 
 func (h *Herald) debugf(f string, v ...interface{}) {
-	if h.Log != nil {
-		h.Log.Debugf(f, v...)
+	if h.logger != nil {
+		h.logger.Debugf(f, v...)
 	}
 }
 
 func (h *Herald) infof(f string, v ...interface{}) {
-	if h.Log != nil {
-		h.Log.Infof(f, v...)
+	if h.logger != nil {
+		h.logger.Infof(f, v...)
 	}
 }
 
 func (h *Herald) warnf(f string, v ...interface{}) {
-	if h.Log != nil {
-		h.Log.Warnf(f, v...)
+	if h.logger != nil {
+		h.logger.Warnf(f, v...)
 	}
 }
 
 func (h *Herald) errorf(f string, v ...interface{}) {
-	if h.Log != nil {
-		h.Log.Errorf(f, v...)
+	if h.logger != nil {
+		h.logger.Errorf(f, v...)
 	}
 }
 
@@ -114,7 +136,7 @@ func (h *Herald) AddRouter(name string, triggers []string, filter string, param 
 	if filter != "" {
 		_, ok := h.filters[filter]
 		if !ok {
-			h.errorf("[Herald] Filter not found : %s", filter)
+			h.errorf("[:Herald:] Filter not found : %s", filter)
 			return
 		}
 	}
@@ -122,8 +144,8 @@ func (h *Herald) AddRouter(name string, triggers []string, filter string, param 
 	var availTriggers []string
 	for _, tgr := range triggers {
 		_, ok := h.triggers[tgr]
-		if tgr != "execution_done" && !ok {
-			h.errorf("[Herald] Trigger not found and will be ignored: %s", tgr)
+		if !ok {
+			h.errorf("[:Herald:] Trigger not found and will be ignored: %s", tgr)
 			continue
 		}
 		availTriggers = append(availTriggers, tgr)
@@ -141,7 +163,7 @@ func (h *Herald) AddRouter(name string, triggers []string, filter string, param 
 func (h *Herald) AddRouterJob(routerName, jobName string, executors []string) {
 	_, ok := h.routers[routerName]
 	if !ok {
-		h.errorf("[Herald] Router not found : %s", routerName)
+		h.errorf("[:Herald:] Router not found : %s", routerName)
 		return
 	}
 
@@ -149,7 +171,7 @@ func (h *Herald) AddRouterJob(routerName, jobName string, executors []string) {
 	for _, exe := range executors {
 		_, ok := h.executors[exe]
 		if !ok {
-			h.errorf("[Herald] Executor not found and will be ignored: %s", exe)
+			h.errorf("[:Herald:] Executor not found and will be ignored: %s", exe)
 			continue
 		}
 		availExecutors = append(availExecutors, exe)
@@ -173,19 +195,16 @@ func (h *Herald) Start() {
 	ctx := context.Background()
 	ctx, h.cancel = context.WithCancel(ctx)
 
-	executionDone := make(chan map[string]interface{})
-
 	var cases []reflect.SelectCase
 
 	cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())})
-	cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(executionDone)})
 
 	var triggerNames []string
 	triggerChanStartIndex := len(cases)
 	for triggerName, tgr := range h.triggers {
 		param := make(chan map[string]interface{})
 
-		h.infof("[Herald] Start trigger %s...", triggerName)
+		h.infof("[:Herald:] Start trigger %s...", triggerName)
 
 		go func(tgr Trigger) {
 			h.wg.Add(1)
@@ -197,26 +216,19 @@ func (h *Herald) Start() {
 		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(param)})
 	}
 
-	h.infof("[Herald] Start to wait for triggers activation...")
+	h.infof("[:Herald:] Start to wait for triggers activation...")
 
 	for {
 		chosen, value, _ := reflect.Select(cases)
 
 		if chosen == 0 {
-			h.infof("[Herald] Stop herald...")
+			h.infof("[:Herald:] Stop herald...")
 			return
 		}
 
-		var triggerName string
+		triggerName := triggerNames[chosen-triggerChanStartIndex]
 
-		if chosen == 1 {
-			h.infof("[Herald] Execution finished ...")
-			triggerName = "execution_done"
-		} else {
-			triggerName = triggerNames[chosen-triggerChanStartIndex]
-		}
-
-		h.infof("[Trigger:%s] Activated", triggerName)
+		h.infof("[:Trigger:%s:] Activated", triggerName)
 
 		triggerParam := value.Interface().(map[string]interface{})
 
@@ -232,7 +244,7 @@ func (h *Herald) Start() {
 				continue
 			}
 
-			h.infof("[Router:%s] Trigger \"%s\" matched", routerName, triggerName)
+			h.infof("[:Router:%s:] Trigger \"%s\" matched", routerName, triggerName)
 
 			for jobName, executors := range r.jobs {
 				exeParam := make(map[string]interface{})
@@ -248,7 +260,7 @@ func (h *Herald) Start() {
 
 				var filterParam map[string]interface{}
 				if r.filter != "" {
-					h.infof("[Router:%s] Run filter \"%s\" with trigger \"%s\" for job \"%s\"", routerName, r.filter, triggerName, jobName)
+					h.infof("[:Router:%s:] Run filter \"%s\" with trigger \"%s\" for job \"%s\"", routerName, r.filter, triggerName, jobName)
 					filterParam, ok = h.filters[r.filter].Filter(triggerParam, exeParam)
 					if !ok {
 						continue
@@ -261,12 +273,12 @@ func (h *Herald) Start() {
 				}
 
 				for _, executorName := range executors {
-					h.infof("[Router:%s] Execute job \"%s\" with executor \"%s\"", routerName, jobName, executorName)
+					h.infof("[:Router:%s:] Execute job \"%s\" with executor \"%s\"", routerName, jobName, executorName)
 					go func(exe Executor, param map[string]interface{}) {
 						h.wg.Add(1)
 						defer h.wg.Done()
 						result := exe.Execute(param)
-						executionDone <- result
+						h.exeDone <- result
 					}(h.executors[executorName], exeParam)
 				}
 			}
@@ -277,7 +289,7 @@ func (h *Herald) Start() {
 // Stop will stop the server and wait for all triggers and executors to exit
 func (h *Herald) Stop() {
 	if h.cancel == nil {
-		h.warnf("[Herald] Herald is not started")
+		h.warnf("[:Herald:] Herald is not started")
 		return
 	}
 
@@ -288,12 +300,19 @@ func (h *Herald) Stop() {
 }
 
 // New will create a new empty Herald instance
-func New() *Herald {
-	return &Herald{
+func New(logger Logger) *Herald {
+	h := &Herald{
+		logger:    logger,
+		exeDone:   make(chan map[string]interface{}),
 		triggers:  make(map[string]Trigger),
 		executors: make(map[string]Executor),
 		filters:   make(map[string]Filter),
 		jobs:      make(map[string]*job),
 		routers:   make(map[string]*router),
 	}
+	h.AddTrigger(triggerExecutionDoneName, &executionDone{
+		logger:   logger,
+		exeParam: h.exeDone,
+	})
+	return h
 }

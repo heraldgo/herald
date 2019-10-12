@@ -87,8 +87,7 @@ func (flt *skip) Filter(triggerParam, filterParam map[string]interface{}) (map[s
 }
 
 func newHerald() *herald.Herald {
-	h := herald.New()
-	h.Log = logger
+	h := herald.New(logger)
 
 	h.AddTrigger("tick", &tick{
 		interval: 3 * time.Second,
