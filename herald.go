@@ -31,7 +31,7 @@ func (tgr *executionDone) Run(ctx context.Context, param chan map[string]interfa
 	for {
 		select {
 		case <-ctx.Done():
-			tgr.logger.Infof("[Trigger(ExecutionDone)] Exit ...")
+			tgr.logger.Infof("[Trigger(ExecutionDone)] Exit")
 			return
 		case ep := <-tgr.exeParam:
 			tgr.logger.Infof("[Trigger(ExecutionDone)] Previous execution finished")
