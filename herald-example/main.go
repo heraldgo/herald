@@ -11,25 +11,25 @@ import (
 	"github.com/xianghuzhao/herald"
 )
 
-type loggerSimple struct{}
+type simpleLogger struct{}
 
 // Debugf is a simple implementation
-func (l *loggerSimple) Debugf(f string, v ...interface{}) {
+func (l *simpleLogger) Debugf(f string, v ...interface{}) {
 	log.Printf("[DEBUG] "+f, v...)
 }
 
 // Infof is a simple implementation
-func (l *loggerSimple) Infof(f string, v ...interface{}) {
+func (l *simpleLogger) Infof(f string, v ...interface{}) {
 	log.Printf("[INFO] "+f, v...)
 }
 
 // Warnf is a simple implementation
-func (l *loggerSimple) Warnf(f string, v ...interface{}) {
+func (l *simpleLogger) Warnf(f string, v ...interface{}) {
 	log.Printf("[WARN] "+f, v...)
 }
 
 // Errorf is a simple implementation
-func (l *loggerSimple) Errorf(f string, v ...interface{}) {
+func (l *simpleLogger) Errorf(f string, v ...interface{}) {
 	log.Printf("[ERROR] "+f, v...)
 }
 
@@ -88,7 +88,6 @@ func (flt *skip) Filter(triggerParam, filterParam map[string]interface{}) (map[s
 
 func newHerald() *herald.Herald {
 	h := herald.New()
-
 	h.Log = logger
 
 	h.AddTrigger("tick", &tick{
@@ -111,7 +110,7 @@ func newHerald() *herald.Herald {
 }
 
 func main() {
-	logger = &loggerSimple{}
+	logger = &simpleLogger{}
 
 	h := newHerald()
 
