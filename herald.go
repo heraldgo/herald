@@ -260,7 +260,7 @@ func (h *Herald) Start() {
 
 				var filterParam map[string]interface{}
 				if r.filter != "" {
-					h.infof("[:Router:%s:] Run filter \"%s\" with trigger \"%s\" for job \"%s\"", routerName, r.filter, triggerName, jobName)
+					h.infof("[:Router:%s:] Filter \"%s\" analyses trigger \"%s\" for job \"%s\"", routerName, r.filter, triggerName, jobName)
 					filterParam, ok = h.filters[r.filter].Filter(triggerParam, exeParam)
 					if !ok {
 						continue
