@@ -261,13 +261,7 @@ func (h *Herald) Start() {
 				var filterParam map[string]interface{}
 				if r.filter != "" {
 					filterParam, ok = h.filters[r.filter].Filter(triggerParam, exeParam)
-
-					passed := "OK"
-					if !ok {
-						passed = "Ignored"
-					}
-
-					h.infof("[:Router:%s:] Filter \"%s\" tests trigger \"%s\" for job \"%s\": %s", routerName, r.filter, triggerName, jobName, passed)
+					h.infof("[:Router:%s:] Filter \"%s\" tests trigger \"%s\" for job \"%s\" passed: %t", routerName, r.filter, triggerName, jobName, ok)
 					if !ok {
 						continue
 					}
