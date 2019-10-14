@@ -260,8 +260,14 @@ func (h *Herald) Start() {
 
 				var filterParam map[string]interface{}
 				if r.filter != "" {
-					h.infof("[:Router:%s:] Filter \"%s\" analyses trigger \"%s\" for job \"%s\"", routerName, r.filter, triggerName, jobName)
 					filterParam, ok = h.filters[r.filter].Filter(triggerParam, exeParam)
+
+					passed := "OK"
+					if !ok {
+						passed = "Failed"
+					}
+
+					h.infof("[:Router:%s:] Filter \"%s\" tests trigger \"%s\" for job \"%s\": %s", routerName, r.filter, triggerName, jobName, passed)
 					if !ok {
 						continue
 					}
