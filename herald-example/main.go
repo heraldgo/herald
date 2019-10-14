@@ -111,16 +111,21 @@ func newHerald() *herald.Herald {
 func main() {
 	logger = &simpleLogger{}
 
+	logger.Infof("Initialize...")
+
 	h := newHerald()
+
+	logger.Infof("Start...")
 
 	go h.Start()
 
 	quit := make(chan os.Signal)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
+
 	logger.Infof("Shutdown...")
 
 	h.Stop()
 
-	logger.Infof("Exiting...")
+	logger.Infof("Exit...")
 }
