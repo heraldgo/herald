@@ -264,7 +264,7 @@ func (h *Herald) Start() {
 
 					passed := "OK"
 					if !ok {
-						passed = "Failed"
+						passed = "Ignored"
 					}
 
 					h.infof("[:Router:%s:] Filter \"%s\" tests trigger \"%s\" for job \"%s\": %s", routerName, r.filter, triggerName, jobName, passed)
