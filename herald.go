@@ -187,11 +187,8 @@ func (h *Herald) SetJobParam(name string, param map[string]interface{}) {
 	}
 }
 
-func (h *Herald) start() {
+func (h *Herald) start(ctx context.Context) {
 	defer h.wg.Done()
-
-	ctx := context.Background()
-	ctx, h.cancel = context.WithCancel(ctx)
 
 	var cases []reflect.SelectCase
 
@@ -286,8 +283,11 @@ func (h *Herald) start() {
 
 // Start the herald server
 func (h *Herald) Start() {
+	ctx := context.Background()
+	ctx, h.cancel = context.WithCancel(ctx)
+
 	h.wg.Add(1)
-	go h.start()
+	go h.start(ctx)
 }
 
 // Stop will stop the server and wait for all triggers and executors to exit
