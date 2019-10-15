@@ -187,9 +187,7 @@ func (h *Herald) SetJobParam(name string, param map[string]interface{}) {
 	}
 }
 
-// Start the herald server
-func (h *Herald) Start() {
-	h.wg.Add(1)
+func (h *Herald) start() {
 	defer h.wg.Done()
 
 	ctx := context.Background()
@@ -206,8 +204,8 @@ func (h *Herald) Start() {
 
 		h.infof("[:Herald:] Start trigger %s...", triggerName)
 
+		h.wg.Add(1)
 		go func(tgr Trigger) {
-			h.wg.Add(1)
 			defer h.wg.Done()
 			tgr.Run(ctx, param)
 		}(tgr)
@@ -274,8 +272,8 @@ func (h *Herald) Start() {
 
 				for _, executorName := range executors {
 					h.infof("[:Router:%s:] Execute job \"%s\" with executor \"%s\"", routerName, jobName, executorName)
+					h.wg.Add(1)
 					go func(exe Executor, param map[string]interface{}) {
-						h.wg.Add(1)
 						defer h.wg.Done()
 						result := exe.Execute(param)
 						h.exeDone <- result
@@ -284,6 +282,12 @@ func (h *Herald) Start() {
 			}
 		}
 	}
+}
+
+// Start the herald server
+func (h *Herald) Start() {
+	h.wg.Add(1)
+	go h.start()
 }
 
 // Stop will stop the server and wait for all triggers and executors to exit

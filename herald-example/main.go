@@ -117,7 +117,7 @@ func main() {
 
 	logger.Infof("Start...")
 
-	go h.Start()
+	h.Start()
 
 	quit := make(chan os.Signal)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
