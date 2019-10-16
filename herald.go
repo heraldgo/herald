@@ -155,7 +155,7 @@ func (h *Herald) AddRouter(name string, triggers []string, filter string, param 
 		triggers: availTriggers,
 		filter:   filter,
 		jobs:     make(map[string][]string),
-		param:    param,
+		param:    DeepCopyMapParam(param),
 	}
 }
 
@@ -183,7 +183,7 @@ func (h *Herald) AddRouterJob(routerName, jobName string, executors []string) {
 // SetJobParam will add job specified param
 func (h *Herald) SetJobParam(name string, param map[string]interface{}) {
 	h.jobs[name] = &job{
-		param: param,
+		param: DeepCopyMapParam(param),
 	}
 }
 
@@ -225,7 +225,10 @@ func (h *Herald) start(ctx context.Context) {
 
 		h.infof("[:Trigger:%s:] Activated", triggerName)
 
-		triggerParam := value.Interface().(map[string]interface{})
+		triggerParam, ok := DeepCopyParam(value.Interface()).(map[string]interface{})
+		if !ok {
+			h.errorf("[:Herald:] Copy trigger param error")
+		}
 
 		for routerName, r := range h.routers {
 			triggerMatched := false
@@ -242,20 +245,25 @@ func (h *Herald) start(ctx context.Context) {
 			h.infof("[:Router:%s:] Trigger \"%s\" matched", routerName, triggerName)
 
 			for jobName, executors := range r.jobs {
-				exeParam := make(map[string]interface{})
-				for k, v := range r.param {
-					exeParam[k] = v
-				}
-				_, ok := h.jobs[jobName]
+				jobParam := make(map[string]interface{})
+
+				// Add router param to job param
+				UpdateMapParam(jobParam, r.param)
+
+				// Add job specific param to job param
+				jobSpecParam, ok := h.jobs[jobName]
 				if ok {
-					for k, v := range h.jobs[jobName].param {
-						exeParam[k] = v
-					}
+					UpdateMapParam(jobParam, jobSpecParam.param)
 				}
 
 				var filterParam map[string]interface{}
 				if r.filter != "" {
-					filterParam, ok = h.filters[r.filter].Filter(triggerParam, exeParam)
+					flt, ok := h.filters[r.filter]
+					if !ok {
+						h.errorf("[:Router:%s:] Filter \"%s\" not found", routerName, r.filter)
+						continue
+					}
+					filterParam, ok = flt.Filter(DeepCopyMapParam(triggerParam), DeepCopyMapParam(jobParam))
 					h.infof("[:Router:%s:] Filter \"%s\" tests trigger \"%s\" for job \"%s\" passed: %t", routerName, r.filter, triggerName, jobName, ok)
 					if !ok {
 						continue
@@ -263,17 +271,30 @@ func (h *Herald) start(ctx context.Context) {
 				} else {
 					filterParam = triggerParam
 				}
-				for k, v := range filterParam {
-					exeParam[k] = v
-				}
 
 				for _, executorName := range executors {
+					exeParam := make(map[string]interface{})
+					exeParam["id"] = pseudoUUID()
+					exeParam["info"] = map[string]interface{}{
+						"job":      jobName,
+						"router":   routerName,
+						"trigger":  triggerName,
+						"filter":   r.filter,
+						"executor": executorName,
+					}
+					exeParam["filter_param"] = DeepCopyMapParam(filterParam)
+					exeParam["job_param"] = DeepCopyMapParam(jobParam)
+
 					h.infof("[:Router:%s:] Execute job \"%s\" with executor \"%s\"", routerName, jobName, executorName)
 					h.wg.Add(1)
 					go func(exe Executor, param map[string]interface{}) {
 						defer h.wg.Done()
-						result := exe.Execute(param)
-						h.exeDone <- result
+
+						result := exe.Execute(DeepCopyMapParam(param))
+
+						resultMap := DeepCopyMapParam(param)
+						UpdateMapParam(resultMap, result)
+						h.exeDone <- resultMap
 					}(h.executors[executorName], exeParam)
 				}
 			}
