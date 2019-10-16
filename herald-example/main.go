@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/xianghuzhao/herald"
+	"github.com/heraldgo/herald"
 )
 
 type simpleLogger struct{}
