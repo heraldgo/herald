@@ -271,12 +271,14 @@ func (h *Herald) start(ctx context.Context) {
 						continue
 					}
 				} else {
+					// If no filter provided, just pass the full trigger param to executor
 					filterParam = triggerParam
 				}
 
 				for _, executorName := range executors {
+					jobID := pseudoUUID()
 					exeParam := make(map[string]interface{})
-					exeParam["id"] = pseudoUUID()
+					exeParam["id"] = jobID
 					exeParam["info"] = map[string]interface{}{
 						"trigger_id": triggerID,
 						"job":        jobName,
@@ -288,8 +290,8 @@ func (h *Herald) start(ctx context.Context) {
 					exeParam["filter_param"] = DeepCopyMapParam(filterParam)
 					exeParam["job_param"] = DeepCopyMapParam(jobParam)
 
-					h.infof("[:Router:%s:] Execute job \"%s\" with executor \"%s\"",
-						routerName, jobName, executorName)
+					h.infof("[:Router:%s:] Execute job \"%s(%s)\" with executor \"%s\"",
+						routerName, jobName, jobID, executorName)
 					h.wg.Add(1)
 					go func(exe Executor, param map[string]interface{}) {
 						defer h.wg.Done()
