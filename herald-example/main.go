@@ -58,7 +58,7 @@ type printParam struct {
 }
 
 func (exe *printParam) Execute(param map[string]interface{}) map[string]interface{} {
-	exe.logger.Infof("[Executor(Print)] Execute with param: %#v", param)
+	exe.logger.Infof("[Executor(Print)] Execute with param: %v", param)
 	return nil
 }
 

@@ -222,8 +222,9 @@ func (h *Herald) start(ctx context.Context) {
 		}
 
 		triggerName := triggerNames[chosen-triggerChanStartIndex]
+		triggerID := pseudoUUID()
 
-		h.infof("[:Trigger:%s:] Activated", triggerName)
+		h.infof("[:Trigger:%s:] Activated with ID: %s", triggerName, triggerID)
 
 		triggerParam, ok := DeepCopyParam(value.Interface()).(map[string]interface{})
 		if !ok {
@@ -242,7 +243,7 @@ func (h *Herald) start(ctx context.Context) {
 				continue
 			}
 
-			h.infof("[:Router:%s:] Trigger \"%s\" matched", routerName, triggerName)
+			h.infof("[:Router:%s:] Trigger \"%s(%s)\" matched", routerName, triggerName, triggerID)
 
 			for jobName, executors := range r.jobs {
 				jobParam := make(map[string]interface{})
@@ -264,7 +265,8 @@ func (h *Herald) start(ctx context.Context) {
 						continue
 					}
 					filterParam, ok = flt.Filter(DeepCopyMapParam(triggerParam), DeepCopyMapParam(jobParam))
-					h.infof("[:Router:%s:] Filter \"%s\" tests trigger \"%s\" for job \"%s\" passed: %t", routerName, r.filter, triggerName, jobName, ok)
+					h.infof("[:Router:%s:] Filter \"%s\" tests trigger \"%s(%s)\" for job \"%s\" passed: %t",
+						routerName, r.filter, triggerName, triggerID, jobName, ok)
 					if !ok {
 						continue
 					}
@@ -276,16 +278,18 @@ func (h *Herald) start(ctx context.Context) {
 					exeParam := make(map[string]interface{})
 					exeParam["id"] = pseudoUUID()
 					exeParam["info"] = map[string]interface{}{
-						"job":      jobName,
-						"router":   routerName,
-						"trigger":  triggerName,
-						"filter":   r.filter,
-						"executor": executorName,
+						"trigger_id": triggerID,
+						"job":        jobName,
+						"router":     routerName,
+						"trigger":    triggerName,
+						"filter":     r.filter,
+						"executor":   executorName,
 					}
 					exeParam["filter_param"] = DeepCopyMapParam(filterParam)
 					exeParam["job_param"] = DeepCopyMapParam(jobParam)
 
-					h.infof("[:Router:%s:] Execute job \"%s\" with executor \"%s\"", routerName, jobName, executorName)
+					h.infof("[:Router:%s:] Execute job \"%s\" with executor \"%s\"",
+						routerName, jobName, executorName)
 					h.wg.Add(1)
 					go func(exe Executor, param map[string]interface{}) {
 						defer h.wg.Done()
