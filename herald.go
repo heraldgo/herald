@@ -190,11 +190,12 @@ func (h *Herald) SetJobParam(name string, param map[string]interface{}) {
 func (h *Herald) start(ctx context.Context) {
 	defer h.wg.Done()
 
-	var cases []reflect.SelectCase
+	cases := make([]reflect.SelectCase, 0, len(h.triggers)+1)
 
 	cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())})
 
-	var triggerNames []string
+	triggerNames := make([]string, 0, len(h.triggers))
+
 	triggerChanStartIndex := len(cases)
 	for triggerName, tgr := range h.triggers {
 		param := make(chan map[string]interface{})
