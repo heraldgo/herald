@@ -4,7 +4,7 @@ package herald
 func deepCopyParam(param interface{}) interface{} {
 	paramSlice, ok := param.([]interface{})
 	if ok {
-		var resultSlice []interface{}
+		resultSlice := make([]interface{}, 0, len(paramSlice))
 		for _, value := range paramSlice {
 			resultSlice = append(resultSlice, deepCopyParam(value))
 		}
