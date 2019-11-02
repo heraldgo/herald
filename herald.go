@@ -247,7 +247,7 @@ func (h *Herald) start(ctx context.Context) {
 				continue
 			}
 
-			h.infof("[:Router:%s:] Trigger \"%s(%s)\" matched", routerName, triggerName, triggerID)
+			h.infof(`[:Router:%s:] Trigger "%s(%s)" matched`, routerName, triggerName, triggerID)
 
 			for jobName, executors := range r.jobs {
 				jobParam := make(map[string]interface{})
@@ -265,11 +265,11 @@ func (h *Herald) start(ctx context.Context) {
 				if r.filter != "" {
 					flt, ok := h.filters[r.filter]
 					if !ok {
-						h.errorf("[:Router:%s:] Filter \"%s\" not found", routerName, r.filter)
+						h.errorf(`[:Router:%s:] Filter "%s" not found`, routerName, r.filter)
 						continue
 					}
 					filterParam, ok = flt.Filter(deepCopyMapParam(triggerParam), deepCopyMapParam(jobParam))
-					h.infof("[:Router:%s:] Filter \"%s\" tests trigger \"%s(%s)\" for job \"%s\" passed: %t",
+					h.infof(`[:Router:%s:] Filter "%s" tests trigger "%s(%s)" for job "%s" passed: %t`,
 						routerName, r.filter, triggerName, triggerID, jobName, ok)
 					if !ok {
 						continue
@@ -294,7 +294,7 @@ func (h *Herald) start(ctx context.Context) {
 					exeParam["filter_param"] = deepCopyMapParam(filterParam)
 					exeParam["job_param"] = deepCopyMapParam(jobParam)
 
-					h.infof("[:Router:%s:] Execute job \"%s(%s)\" with executor \"%s\"",
+					h.infof(`[:Router:%s:] Execute job "%s(%s)" with executor "%s"`,
 						routerName, jobName, jobID, executorName)
 					h.wg.Add(1)
 					go func(exe Executor, param map[string]interface{}) {

@@ -65,21 +65,13 @@ func (exe *printParam) Execute(param map[string]interface{}) map[string]interfac
 type skip struct{}
 
 func (flt *skip) Filter(triggerParam, filterParam map[string]interface{}) (map[string]interface{}, bool) {
-	skipNumber, ok := filterParam["skip_number"]
-	if !ok {
-		return triggerParam, true
-	}
-	skipNumberInt, ok := skipNumber.(int)
-	if !ok || skipNumberInt <= 0 {
+	skipNumber, ok := filterParam["skip_number"].(int)
+	if !ok || skipNumber <= 0 {
 		return triggerParam, true
 	}
 
-	counter, ok := triggerParam["counter"]
-	if !ok {
-		return nil, false
-	}
-	counterInt, ok := counter.(int)
-	if !ok || counterInt%(skipNumberInt+1) != 0 {
+	counter, ok := triggerParam["counter"].(int)
+	if !ok || counter%(skipNumber+1) != 0 {
 		return nil, false
 	}
 
