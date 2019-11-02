@@ -42,6 +42,7 @@ type tick struct {
 
 func (tgr *tick) Run(ctx context.Context, param chan map[string]interface{}) {
 	ticker := time.NewTicker(tgr.interval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
