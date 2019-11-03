@@ -22,7 +22,6 @@ type Trigger interface {
 const triggerExecutionDoneName = "exe_done"
 
 type executionDone struct {
-	logger   Logger
 	exeParam chan map[string]interface{}
 }
 
@@ -31,10 +30,8 @@ func (tgr *executionDone) Run(ctx context.Context, param chan map[string]interfa
 	for {
 		select {
 		case <-ctx.Done():
-			tgr.logger.Infof("[Trigger(ExecutionDone)] Exit")
 			return
 		case ep := <-tgr.exeParam:
-			tgr.logger.Infof("[Trigger(ExecutionDone)] Previous execution finished")
 			param <- ep
 		}
 	}
@@ -346,7 +343,6 @@ func New(logger Logger) *Herald {
 		routers:   make(map[string]*router),
 	}
 	h.AddTrigger(triggerExecutionDoneName, &executionDone{
-		logger:   logger,
 		exeParam: h.exeDone,
 	})
 	return h
