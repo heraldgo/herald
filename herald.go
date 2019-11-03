@@ -22,7 +22,7 @@ type Trigger interface {
 const triggerExecutionDoneName = "exe_done"
 
 type executionDone struct {
-	exeParam chan map[string]interface{}
+	exeResult chan map[string]interface{}
 }
 
 // Run start the execution done trigger
@@ -31,8 +31,12 @@ func (tgr *executionDone) Run(ctx context.Context, param chan map[string]interfa
 		select {
 		case <-ctx.Done():
 			return
-		case ep := <-tgr.exeParam:
-			param <- ep
+		case ep := <-tgr.exeResult:
+			select {
+			case <-ctx.Done():
+				return
+			case param <- ep:
+			}
 		}
 	}
 }
@@ -185,8 +189,6 @@ func (h *Herald) SetJobParam(name string, param map[string]interface{}) {
 }
 
 func (h *Herald) start(ctx context.Context) {
-	defer h.wg.Done()
-
 	cases := make([]reflect.SelectCase, 0, len(h.triggers)+1)
 
 	cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())})
@@ -301,7 +303,11 @@ func (h *Herald) start(ctx context.Context) {
 
 						resultMap := deepCopyMapParam(param)
 						mergeMapParam(resultMap, result)
-						h.exeDone <- resultMap
+
+						select {
+						case <-ctx.Done():
+						case h.exeDone <- resultMap:
+						}
 					}(h.executors[executorName], exeParam)
 				}
 			}
@@ -315,7 +321,10 @@ func (h *Herald) Start() {
 	ctx, h.cancel = context.WithCancel(ctx)
 
 	h.wg.Add(1)
-	go h.start(ctx)
+	go func() {
+		defer h.wg.Done()
+		h.start(ctx)
+	}()
 }
 
 // Stop will stop the server and wait for all triggers and executors to exit
@@ -343,7 +352,7 @@ func New(logger Logger) *Herald {
 		routers:   make(map[string]*router),
 	}
 	h.AddTrigger(triggerExecutionDoneName, &executionDone{
-		exeParam: h.exeDone,
+		exeResult: h.exeDone,
 	})
 	return h
 }
