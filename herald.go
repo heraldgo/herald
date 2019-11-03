@@ -299,9 +299,11 @@ func (h *Herald) start(ctx context.Context) {
 
 						result := exe.Execute(deepCopyMapParam(param))
 
-						resultMap := deepCopyMapParam(param)
-						mergeMapParam(resultMap, result)
-						h.exeDone <- resultMap
+						if param["info"].(map[string]interface{})["trigger"] != triggerExecutionDoneName {
+							resultMap := deepCopyMapParam(param)
+							mergeMapParam(resultMap, result)
+							h.exeDone <- resultMap
+						}
 					}(h.executors[executorName], exeParam)
 				}
 			}
