@@ -198,7 +198,7 @@ func (h *Herald) start(ctx context.Context) {
 		h.infof("[:Herald:] Start trigger %s...", triggerName)
 
 		h.wg.Add(1)
-		go func() {
+		go func(tgr Trigger) {
 			defer h.wg.Done()
 			tgr.Run(ctx, func(tgrParam map[string]interface{}) {
 				select {
@@ -206,7 +206,7 @@ func (h *Herald) start(ctx context.Context) {
 				case param <- tgrParam:
 				}
 			})
-		}()
+		}(tgr)
 
 		triggerNames = append(triggerNames, triggerName)
 		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(param)})
@@ -227,7 +227,7 @@ func (h *Herald) start(ctx context.Context) {
 		triggerName := triggerNames[chosen-triggerChanStartIndex]
 		triggerID := pseudoUUID()
 
-		h.infof("[:Trigger:%s:] Activated with ID: %s", triggerName, triggerID)
+		h.infof("[:Herald:Trigger:%s:] Activated with ID: %s", triggerName, triggerID)
 
 		triggerParam, ok := deepCopyParam(value.Interface()).(map[string]interface{})
 		if !ok {
@@ -247,7 +247,7 @@ func (h *Herald) start(ctx context.Context) {
 				continue
 			}
 
-			h.infof(`[:Router:%s:] Trigger "%s(%s)" matched`, routerName, triggerName, triggerID)
+			h.infof(`[:Herald:Router:%s:] Trigger "%s(%s)" matched`, routerName, triggerName, triggerID)
 
 			for jobName, executors := range r.jobs {
 				jobParam := make(map[string]interface{})
@@ -265,11 +265,11 @@ func (h *Herald) start(ctx context.Context) {
 				if r.filter != "" {
 					flt, ok := h.filters[r.filter]
 					if !ok {
-						h.errorf(`[:Router:%s:] Filter "%s" not found`, routerName, r.filter)
+						h.errorf(`[:Herald:Router:%s:] Filter "%s" not found`, routerName, r.filter)
 						continue
 					}
 					filterParam, ok = flt.Filter(deepCopyMapParam(triggerParam), deepCopyMapParam(jobParam))
-					h.infof(`[:Router:%s:] Filter "%s" tests trigger "%s(%s)" for job "%s" passed: %t`,
+					h.infof(`[:Herald:Router:%s:] Filter "%s" tests trigger "%s(%s)" for job "%s" passed: %t`,
 						routerName, r.filter, triggerName, triggerID, jobName, ok)
 					if !ok {
 						continue
@@ -294,13 +294,13 @@ func (h *Herald) start(ctx context.Context) {
 					exeParam["filter_param"] = deepCopyMapParam(filterParam)
 					exeParam["job_param"] = deepCopyMapParam(jobParam)
 
-					h.infof(`[:Router:%s:] Execute job "%s(%s)" with executor "%s"`,
+					h.infof(`[:Herald:Router:%s:] Execute job "%s(%s)" with executor "%s"`,
 						routerName, jobName, jobID, executorName)
 					h.wg.Add(1)
-					go func(exeName string) {
+					go func(exe Executor) {
 						defer h.wg.Done()
 
-						result := h.executors[exeName].Execute(deepCopyMapParam(exeParam))
+						result := exe.Execute(deepCopyMapParam(exeParam))
 
 						resultMap := deepCopyMapParam(exeParam)
 						mergeMapParam(resultMap, result)
@@ -309,7 +309,7 @@ func (h *Herald) start(ctx context.Context) {
 						case <-ctx.Done():
 						case h.exeDone <- resultMap:
 						}
-					}(executorName)
+					}(h.executors[executorName])
 				}
 			}
 		}
