@@ -16,7 +16,7 @@ type Logger interface {
 
 // Trigger should send trigger events to the core
 type Trigger interface {
-	Run(context.Context, chan map[string]interface{})
+	Run(context.Context, func(map[string]interface{}))
 }
 
 const triggerExecutionDoneName = "exe_done"
@@ -26,17 +26,13 @@ type executionDone struct {
 }
 
 // Run start the execution done trigger
-func (tgr *executionDone) Run(ctx context.Context, param chan map[string]interface{}) {
+func (tgr *executionDone) Run(ctx context.Context, sendParam func(map[string]interface{})) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case ep := <-tgr.exeResult:
-			select {
-			case <-ctx.Done():
-				return
-			case param <- ep:
-			}
+			sendParam(ep)
 		}
 	}
 }
@@ -202,10 +198,15 @@ func (h *Herald) start(ctx context.Context) {
 		h.infof("[:Herald:] Start trigger %s...", triggerName)
 
 		h.wg.Add(1)
-		go func(tgr Trigger) {
+		go func() {
 			defer h.wg.Done()
-			tgr.Run(ctx, param)
-		}(tgr)
+			tgr.Run(ctx, func(tgrParam map[string]interface{}) {
+				select {
+				case <-ctx.Done():
+				case param <- tgrParam:
+				}
+			})
+		}()
 
 		triggerNames = append(triggerNames, triggerName)
 		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(param)})
@@ -296,19 +297,19 @@ func (h *Herald) start(ctx context.Context) {
 					h.infof(`[:Router:%s:] Execute job "%s(%s)" with executor "%s"`,
 						routerName, jobName, jobID, executorName)
 					h.wg.Add(1)
-					go func(exe Executor, param map[string]interface{}) {
+					go func(exeName string) {
 						defer h.wg.Done()
 
-						result := exe.Execute(deepCopyMapParam(param))
+						result := h.executors[exeName].Execute(deepCopyMapParam(exeParam))
 
-						resultMap := deepCopyMapParam(param)
+						resultMap := deepCopyMapParam(exeParam)
 						mergeMapParam(resultMap, result)
 
 						select {
 						case <-ctx.Done():
 						case h.exeDone <- resultMap:
 						}
-					}(h.executors[executorName], exeParam)
+					}(executorName)
 				}
 			}
 		}

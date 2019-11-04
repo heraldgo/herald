@@ -35,25 +35,28 @@ func (l *simpleLogger) Errorf(f string, v ...interface{}) {
 
 var logger herald.Logger
 
+// tick trigger
 type tick struct {
 	interval time.Duration
-	counter  int
 }
 
-func (tgr *tick) Run(ctx context.Context, param chan map[string]interface{}) {
+func (tgr *tick) Run(ctx context.Context, sendParam func(map[string]interface{})) {
 	ticker := time.NewTicker(tgr.interval)
 	defer ticker.Stop()
+
+	counter := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			tgr.counter++
-			param <- map[string]interface{}{"counter": tgr.counter}
+			counter++
+			sendParam(map[string]interface{}{"counter": counter})
 		}
 	}
 }
 
+// print param executor
 type printParam struct {
 	logger herald.Logger
 }
@@ -63,6 +66,7 @@ func (exe *printParam) Execute(param map[string]interface{}) map[string]interfac
 	return nil
 }
 
+// skip filter to skip certain numbers
 type skip struct{}
 
 func (flt *skip) Filter(triggerParam, filterParam map[string]interface{}) (map[string]interface{}, bool) {
