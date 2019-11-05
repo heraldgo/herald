@@ -274,9 +274,6 @@ func (h *Herald) start(ctx context.Context) {
 					if !ok {
 						continue
 					}
-				} else {
-					// If no filter provided, just pass the full trigger param to executor
-					filterParam = triggerParam
 				}
 
 				for _, executorName := range executors {

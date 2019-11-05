@@ -14,9 +14,7 @@ import (
 type simpleLogger struct{}
 
 // Debugf is a simple implementation
-func (l *simpleLogger) Debugf(f string, v ...interface{}) {
-	log.Printf("[DEBUG] "+f, v...)
-}
+func (l *simpleLogger) Debugf(f string, v ...interface{}) {}
 
 // Infof is a simple implementation
 func (l *simpleLogger) Infof(f string, v ...interface{}) {
