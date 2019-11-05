@@ -318,6 +318,11 @@ func (h *Herald) start(ctx context.Context) {
 
 // Start the herald server
 func (h *Herald) Start() {
+	if h.cancel != nil {
+		h.warnf("[:Herald:] Herald is already started")
+		return
+	}
+
 	ctx := context.Background()
 	ctx, h.cancel = context.WithCancel(ctx)
 
@@ -341,7 +346,7 @@ func (h *Herald) Stop() {
 	h.wg.Wait()
 }
 
-// New will create a new empty Herald instance
+// New will create a new Herald instance
 func New(logger Logger) *Herald {
 	h := &Herald{
 		logger:    logger,
