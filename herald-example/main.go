@@ -64,11 +64,11 @@ func (exe *printParam) Execute(param map[string]interface{}) map[string]interfac
 	return nil
 }
 
-// skip filter to skip certain numbers
+// skip selector to skip certain numbers
 type skip struct{}
 
-func (flt *skip) Filter(triggerParam, filterParam map[string]interface{}) bool {
-	skipNumber, ok := filterParam["skip_number"].(int)
+func (slt *skip) Select(triggerParam, selectorParam map[string]interface{}) bool {
+	skipNumber, ok := selectorParam["skip_number"].(int)
 	if !ok || skipNumber <= 0 {
 		return true
 	}
@@ -92,7 +92,7 @@ func newHerald() *herald.Herald {
 		logger: logger,
 	})
 
-	h.AddFilter("skip", &skip{})
+	h.AddSelector("skip", &skip{})
 
 	h.AddRouter("skip_test", "tick", "skip", "", map[string]interface{}{
 		"skip_number": 2,
