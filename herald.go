@@ -21,6 +21,7 @@ type Trigger interface {
 
 const triggerExecutionDoneName = "exe_done"
 
+// executionDone is an internal trigger activated after job finished on executor
 type executionDone struct {
 	exeResult chan map[string]interface{}
 }
@@ -42,9 +43,14 @@ type Executor interface {
 	Execute(param map[string]interface{}) map[string]interface{}
 }
 
-// Filter triggers for jobs
+// Filter will filter trigger to check whether to execute jobs
 type Filter interface {
-	Filter(triggerParam, filterParam map[string]interface{}) (map[string]interface{}, bool)
+	Filter(triggerParam, filterParam map[string]interface{}) bool
+}
+
+// Transformer will transform trigger param
+type Transformer interface {
+	Transform(triggerParam map[string]interface{}) map[string]interface{}
 }
 
 type job struct {
@@ -52,23 +58,25 @@ type job struct {
 }
 
 type router struct {
-	triggers []string
-	filter   string
-	jobs     map[string][]string
-	param    map[string]interface{}
+	trigger     string
+	filter      string
+	transformer string
+	jobs        map[string]string
+	param       map[string]interface{}
 }
 
 // Herald is the core struct
 type Herald struct {
-	logger    Logger
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	exeDone   chan map[string]interface{}
-	triggers  map[string]Trigger
-	executors map[string]Executor
-	filters   map[string]Filter
-	jobs      map[string]*job
-	routers   map[string]*router
+	logger       Logger
+	cancel       context.CancelFunc
+	wg           sync.WaitGroup
+	exeDone      chan map[string]interface{}
+	triggers     map[string]Trigger
+	transformers map[string]Transformer
+	executors    map[string]Executor
+	filters      map[string]Filter
+	jobs         map[string]*job
+	routers      map[string]*router
 }
 
 func (h *Herald) debugf(f string, v ...interface{}) {
@@ -95,27 +103,38 @@ func (h *Herald) errorf(f string, v ...interface{}) {
 	}
 }
 
-// GetTrigger will add a trigger
+// GetTrigger will get a trigger
 func (h *Herald) GetTrigger(name string) (Trigger, bool) {
 	tgr, ok := h.triggers[name]
 	return tgr, ok
 }
 
-// GetExecutor will add a executor
+// GetExecutor will get a executor
 func (h *Herald) GetExecutor(name string) (Executor, bool) {
 	exe, ok := h.executors[name]
 	return exe, ok
 }
 
-// GetFilter will add a filter
+// GetFilter will get a filter
 func (h *Herald) GetFilter(name string) (Filter, bool) {
 	flt, ok := h.filters[name]
 	return flt, ok
 }
 
+// GetTransformer will get a filter
+func (h *Herald) GetTransformer(name string) (Transformer, bool) {
+	tfm, ok := h.transformers[name]
+	return tfm, ok
+}
+
 // AddTrigger will add a trigger
 func (h *Herald) AddTrigger(name string, tgr Trigger) {
 	h.triggers[name] = tgr
+}
+
+// AddTransformer will add a transformer
+func (h *Herald) AddTransformer(name string, tfm Transformer) {
+	h.transformers[name] = tfm
 }
 
 // AddExecutor will add a executor
@@ -129,7 +148,7 @@ func (h *Herald) AddFilter(name string, flt Filter) {
 }
 
 // AddRouter will add executor and param
-func (h *Herald) AddRouter(name string, triggers []string, filter string, param map[string]interface{}) {
+func (h *Herald) AddRouter(name, trigger, filter, transformer string, param map[string]interface{}) {
 	if filter != "" {
 		_, ok := h.filters[filter]
 		if !ok {
@@ -138,46 +157,47 @@ func (h *Herald) AddRouter(name string, triggers []string, filter string, param 
 		}
 	}
 
-	var availTriggers []string
-	for _, tgr := range triggers {
-		_, ok := h.triggers[tgr]
+	if transformer != "" {
+		_, ok := h.transformers[transformer]
 		if !ok {
-			h.errorf("[:Herald:] Trigger not found and will be ignored: %s", tgr)
-			continue
+			h.errorf("[:Herald:] Transformer not found : %s", transformer)
+			return
 		}
-		availTriggers = append(availTriggers, tgr)
+	}
+
+	_, ok := h.triggers[trigger]
+	if !ok {
+		h.errorf("[:Herald:] Trigger not found: %s", trigger)
+		return
 	}
 
 	h.routers[name] = &router{
-		triggers: availTriggers,
-		filter:   filter,
-		jobs:     make(map[string][]string),
-		param:    deepCopyMapParam(param),
+		trigger:     trigger,
+		filter:      filter,
+		transformer: transformer,
+		jobs:        make(map[string]string),
+		param:       deepCopyMapParam(param),
 	}
 }
 
 // AddRouterJob will add executor and param
-func (h *Herald) AddRouterJob(routerName, jobName string, executors []string) {
+func (h *Herald) AddRouterJob(routerName, jobName, executor string) {
 	_, ok := h.routers[routerName]
 	if !ok {
 		h.errorf("[:Herald:] Router not found : %s", routerName)
 		return
 	}
 
-	var availExecutors []string
-	for _, exe := range executors {
-		_, ok := h.executors[exe]
-		if !ok {
-			h.errorf("[:Herald:] Executor not found and will be ignored: %s", exe)
-			continue
-		}
-		availExecutors = append(availExecutors, exe)
+	_, ok = h.executors[executor]
+	if !ok {
+		h.errorf("[:Herald:] Executor not found: %s", executor)
+		return
 	}
 
-	h.routers[routerName].jobs[jobName] = availExecutors
+	h.routers[routerName].jobs[jobName] = executor
 }
 
-// SetJobParam will add job specified param
+// SetJobParam will set job specified param
 func (h *Herald) SetJobParam(name string, param map[string]interface{}) {
 	h.jobs[name] = &job{
 		param: deepCopyMapParam(param),
@@ -236,20 +256,31 @@ func (h *Herald) start(ctx context.Context) {
 		}
 
 		for routerName, r := range h.routers {
-			triggerMatched := false
-			for _, t := range r.triggers {
-				if t == triggerName {
-					triggerMatched = true
-					break
-				}
-			}
-			if !triggerMatched {
+			if triggerName != r.trigger {
 				continue
 			}
 
 			h.infof(`[:Herald:Router:%s:] Trigger "%s(%s)" matched`, routerName, triggerName, triggerID)
 
-			for jobName, executors := range r.jobs {
+			// transformer
+			finalTriggerParam := triggerParam
+			if r.transformer != "" {
+				tfm, ok := h.transformers[r.transformer]
+				if !ok {
+					h.errorf(`[:Herald:Router:%s:] Transformer "%s" not found`, routerName, r.transformer)
+					continue
+				} else {
+					finalTriggerParam = tfm.Transform(deepCopyMapParam(triggerParam))
+					h.infof(`[:Herald:Router:%s:] Trigger param transformed by "%s"`, routerName, r.transformer)
+				}
+			}
+
+			for jobName, executorName := range r.jobs {
+				if r.filter == "" {
+					h.debugf(`[:Herald:Router:%s:] Filter not found`, routerName)
+					continue
+				}
+
 				jobParam := make(map[string]interface{})
 
 				// Add router param to job param
@@ -261,53 +292,52 @@ func (h *Herald) start(ctx context.Context) {
 					mergeMapParam(jobParam, jobSpecParam.param)
 				}
 
-				var filterParam map[string]interface{}
-				if r.filter != "" {
-					flt, ok := h.filters[r.filter]
-					if !ok {
-						h.errorf(`[:Herald:Router:%s:] Filter "%s" not found`, routerName, r.filter)
-						continue
-					}
-					filterParam, ok = flt.Filter(deepCopyMapParam(triggerParam), deepCopyMapParam(jobParam))
-					h.infof(`[:Herald:Router:%s:] Filter "%s" tests trigger "%s(%s)" for job "%s" passed: %t`,
-						routerName, r.filter, triggerName, triggerID, jobName, ok)
-					if !ok {
-						continue
-					}
+				// filter
+				flt, ok := h.filters[r.filter]
+				if !ok {
+					h.errorf(`[:Herald:Router:%s:] Filter "%s" not found`, routerName, r.filter)
+					continue
 				}
+				passed := flt.Filter(deepCopyMapParam(triggerParam), deepCopyMapParam(jobParam))
+				if !passed {
+					continue
+				}
+				h.infof(`[:Herald:Router:%s:] Filter "%s" tests trigger "%s(%s)" for job "%s" passed`,
+					routerName, r.filter, triggerName, triggerID, jobName)
 
-				for _, executorName := range executors {
-					jobID := pseudoUUID()
-					exeParam := make(map[string]interface{})
-					exeParam["id"] = jobID
-					exeParam["info"] = map[string]interface{}{
-						"trigger_id": triggerID,
-						"job":        jobName,
-						"router":     routerName,
-						"trigger":    triggerName,
-						"filter":     r.filter,
-						"executor":   executorName,
-					}
-					exeParam["filter_param"] = deepCopyMapParam(filterParam)
-					exeParam["job_param"] = deepCopyMapParam(jobParam)
+				// executor
+				jobID := pseudoUUID()
+				exeParam := make(map[string]interface{})
+				exeParam["id"] = jobID
+				exeParam["info"] = map[string]interface{}{
+					"trigger_id": triggerID,
+					"job":        jobName,
+					"router":     routerName,
+					"trigger":    triggerName,
+					"filter":     r.filter,
+					"executor":   executorName,
+				}
+				exeParam["trigger_param"] = deepCopyMapParam(finalTriggerParam)
+				exeParam["job_param"] = deepCopyMapParam(jobParam)
 
-					h.infof(`[:Herald:Router:%s:] Execute job "%s(%s)" with executor "%s"`,
-						routerName, jobName, jobID, executorName)
-					h.wg.Add(1)
-					go func(exe Executor) {
-						defer h.wg.Done()
+				h.infof(`[:Herald:Router:%s:] Execute job "%s(%s)" with executor "%s"`,
+					routerName, jobName, jobID, executorName)
+				h.wg.Add(1)
+				go func(exe Executor) {
+					defer h.wg.Done()
 
-						result := exe.Execute(deepCopyMapParam(exeParam))
+					result := exe.Execute(deepCopyMapParam(exeParam))
 
-						resultMap := deepCopyMapParam(exeParam)
-						mergeMapParam(resultMap, result)
+					resultMap := deepCopyMapParam(exeParam)
+					mergeMapParam(resultMap, result)
 
+					if h.exeDone != nil {
 						select {
 						case <-ctx.Done():
 						case h.exeDone <- resultMap:
 						}
-					}(h.executors[executorName])
-				}
+					}
+				}(h.executors[executorName])
 			}
 		}
 	}
