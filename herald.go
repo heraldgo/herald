@@ -232,8 +232,6 @@ func (h *Herald) start(ctx context.Context) {
 		cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(param)})
 	}
 
-	h.infof("[:Herald:] Start to wait for triggers activation...")
-
 	for {
 		chosen, value, _ := reflect.Select(cases)
 
@@ -260,7 +258,7 @@ func (h *Herald) start(ctx context.Context) {
 				continue
 			}
 
-			h.infof(`[:Herald:Router:%s:] Trigger "%s(%s)" matched`, routerName, triggerName, triggerID)
+			h.debugf(`[:Herald:Router:%s:] Trigger "%s(%s)" matched`, routerName, triggerName, triggerID)
 
 			// transformer
 			finalTriggerParam := triggerParam
@@ -296,11 +294,10 @@ func (h *Herald) start(ctx context.Context) {
 					h.errorf(`[:Herald:Router:%s:] Selector "%s" not found`, routerName, r.selector)
 					continue
 				}
-				passed := slt.Select(deepCopyMapParam(triggerParam), deepCopyMapParam(jobParam))
-				if !passed {
+				if !slt.Select(deepCopyMapParam(triggerParam), deepCopyMapParam(jobParam)) {
 					continue
 				}
-				h.infof(`[:Herald:Router:%s:] Selector "%s" accepts trigger "%s(%s)" for job "%s"`,
+				h.debugf(`[:Herald:Router:%s:] Selector "%s" accepts trigger "%s(%s)" for job "%s"`,
 					routerName, r.selector, triggerName, triggerID, jobName)
 
 				// executor
