@@ -323,6 +323,7 @@ func (h *Herald) start(ctx context.Context) {
 					defer h.wg.Done()
 
 					result := exe.Execute(deepCopyMapParam(exeParam))
+					h.infof(`[:Herald:Job:%s:] Job "%s" finished`, exeParam["info"].(map[string]interface{})["job"], exeParam["id"])
 
 					resultMap := deepCopyMapParam(exeParam)
 					mergeMapParam(resultMap, result)
