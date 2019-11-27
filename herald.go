@@ -1,3 +1,5 @@
+// Package herald is a library
+// for simplifying common server maintenance tasks.
 package herald
 
 import (
