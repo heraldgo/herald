@@ -52,38 +52,30 @@ type Selector interface {
 	Select(triggerParam, selectorParam map[string]interface{}) bool
 }
 
-// Transformer will transform trigger param for selector or executor.
-type Transformer interface {
-	Transform(triggerParam map[string]interface{}) map[string]interface{}
-}
-
 type job struct {
 	param map[string]interface{}
 }
 
 type router struct {
-	trigger             string
-	jobs                map[string]string
-	selector            string
-	transformerSelector string
-	transformerExecutor string
-	param               map[string]interface{}
+	trigger  string
+	jobs     map[string]string
+	selector string
+	param    map[string]interface{}
 }
 
 // Herald is the core struct.
 // Do not instantiate Herald explicitly.
 // Use New() function instead.
 type Herald struct {
-	logger       Logger
-	cancel       context.CancelFunc
-	wg           sync.WaitGroup
-	exeDone      chan map[string]interface{}
-	triggers     map[string]Trigger
-	executors    map[string]Executor
-	selectors    map[string]Selector
-	transformers map[string]Transformer
-	routers      map[string]*router
-	jobs         map[string]*job
+	logger    Logger
+	cancel    context.CancelFunc
+	wg        sync.WaitGroup
+	exeDone   chan map[string]interface{}
+	triggers  map[string]Trigger
+	executors map[string]Executor
+	selectors map[string]Selector
+	routers   map[string]*router
+	jobs      map[string]*job
 }
 
 func (h *Herald) debugf(f string, v ...interface{}) {
@@ -128,15 +120,9 @@ func (h *Herald) GetSelector(name string) Selector {
 	return h.selectors[name]
 }
 
-// GetTransformer will get a transformer.
-// If the transformer does exist, it will return nil.
-func (h *Herald) GetTransformer(name string) Transformer {
-	return h.transformers[name]
-}
-
 // AddTrigger will add a trigger.
 // Please specify a name to use in router.
-// If the name already exists, the old one will be overwritten
+// If the name already exists, the old one will be overwritten.
 func (h *Herald) AddTrigger(name string, tgr Trigger) error {
 	if name == "" {
 		return errors.New("Trigger name could not be empty")
@@ -148,9 +134,9 @@ func (h *Herald) AddTrigger(name string, tgr Trigger) error {
 	return nil
 }
 
-// AddExecutor will add a executor.
+// AddExecutor will add an executor.
 // Please specify a name to use in router.
-// If the name already exists, the old one will be overwritten
+// If the name already exists, the old one will be overwritten.
 func (h *Herald) AddExecutor(name string, exe Executor) error {
 	if name == "" {
 		return errors.New("Executor name could not be empty")
@@ -164,7 +150,7 @@ func (h *Herald) AddExecutor(name string, exe Executor) error {
 
 // AddSelector will add a selector.
 // Please specify a name to use in router.
-// If the name already exists, the old one will be overwritten
+// If the name already exists, the old one will be overwritten.
 func (h *Herald) AddSelector(name string, slt Selector) error {
 	if name == "" {
 		return errors.New("Selector name could not be empty")
@@ -176,42 +162,15 @@ func (h *Herald) AddSelector(name string, slt Selector) error {
 	return nil
 }
 
-// AddTransformer will add a transformer.
-// Please specify a name to use in router.
-// If the name already exists, the old one will be overwritten
-func (h *Herald) AddTransformer(name string, tfm Transformer) error {
-	if name == "" {
-		return errors.New("Transformer name could not be empty")
-	}
-	if tfm == nil {
-		return errors.New("Transformer could not be nil")
-	}
-	h.transformers[name] = tfm
-	return nil
-}
-
 // AddRouter will create a router.
 // The router defines the rule for executing the job.
-// When the trigger is activated, then try to
-// The transformer is optional.
-func (h *Herald) AddRouter(name, trigger, selector, transformerSelector, transformerExecutor string, param map[string]interface{}) error {
+// When the trigger is activated, then try to use selector
+// to check whether to execute jobs.
+func (h *Herald) AddRouter(name, trigger, selector string, param map[string]interface{}) error {
 	if selector != "" {
 		_, ok := h.selectors[selector]
 		if !ok {
 			return fmt.Errorf("Selector does not exist : %s", selector)
-		}
-	}
-
-	if transformerSelector != "" {
-		_, ok := h.transformers[transformerSelector]
-		if !ok {
-			return fmt.Errorf("Transformer for selector does not exist : %s", transformerSelector)
-		}
-	}
-	if transformerExecutor != "" {
-		_, ok := h.transformers[transformerExecutor]
-		if !ok {
-			return fmt.Errorf("Transformer for executor does not exist : %s", transformerExecutor)
 		}
 	}
 
@@ -221,12 +180,10 @@ func (h *Herald) AddRouter(name, trigger, selector, transformerSelector, transfo
 	}
 
 	h.routers[name] = &router{
-		trigger:             trigger,
-		selector:            selector,
-		transformerSelector: transformerSelector,
-		transformerExecutor: transformerExecutor,
-		jobs:                make(map[string]string),
-		param:               deepCopyMapParam(param),
+		trigger:  trigger,
+		selector: selector,
+		jobs:     make(map[string]string),
+		param:    deepCopyMapParam(param),
 	}
 	return nil
 }
@@ -316,32 +273,6 @@ func (h *Herald) start(ctx context.Context) {
 
 			h.debugf(`[:Herald:Router:%s:] Trigger "%s(%s)" matched`, routerName, triggerName, triggerID)
 
-			// transformer for selector
-			finalTriggerParamSelector := triggerParam
-			if r.transformerSelector != "" {
-				tfm, ok := h.transformers[r.transformerSelector]
-				if !ok {
-					h.errorf(`[:Herald:Router:%s:] Transformer for selector "%s" does not exist`, routerName, r.transformerSelector)
-					continue
-				} else {
-					finalTriggerParamSelector = tfm.Transform(deepCopyMapParam(triggerParam))
-					h.infof(`[:Herald:Router:%s:] Trigger param for selector transformed by "%s"`, routerName, r.transformerSelector)
-				}
-			}
-
-			// transformer for executor
-			finalTriggerParamExecutor := triggerParam
-			if r.transformerExecutor != "" {
-				tfm, ok := h.transformers[r.transformerExecutor]
-				if !ok {
-					h.errorf(`[:Herald:Router:%s:] Transformer for executor "%s" does not exist`, routerName, r.transformerExecutor)
-					continue
-				} else {
-					finalTriggerParamExecutor = tfm.Transform(deepCopyMapParam(triggerParam))
-					h.infof(`[:Herald:Router:%s:] Trigger param transformed by "%s"`, routerName, r.transformerExecutor)
-				}
-			}
-
 			for jobName, executorName := range r.jobs {
 				if r.selector == "" {
 					h.debugf(`[:Herald:Router:%s:] Selector does not exist`, routerName)
@@ -363,7 +294,7 @@ func (h *Herald) start(ctx context.Context) {
 					h.errorf(`[:Herald:Router:%s:] Selector "%s" does not exist`, routerName, r.selector)
 					continue
 				}
-				if !slt.Select(deepCopyMapParam(finalTriggerParamSelector), deepCopyMapParam(jobParam)) {
+				if !slt.Select(deepCopyMapParam(triggerParam), deepCopyMapParam(jobParam)) {
 					continue
 				}
 				h.debugf(`[:Herald:Router:%s:] Selector "%s" accepts trigger "%s(%s)" for job "%s"`,
@@ -374,16 +305,14 @@ func (h *Herald) start(ctx context.Context) {
 				exeParam := make(map[string]interface{})
 				exeParam["id"] = jobID
 				exeParam["info"] = map[string]interface{}{
-					"trigger_id":           triggerID,
-					"trigger":              triggerName,
-					"router":               routerName,
-					"job":                  jobName,
-					"selector":             r.selector,
-					"transformer_selector": r.transformerSelector,
-					"transformer_executor": r.transformerExecutor,
-					"executor":             executorName,
+					"trigger_id": triggerID,
+					"trigger":    triggerName,
+					"router":     routerName,
+					"job":        jobName,
+					"selector":   r.selector,
+					"executor":   executorName,
 				}
-				exeParam["trigger_param"] = deepCopyMapParam(finalTriggerParamExecutor)
+				exeParam["trigger_param"] = deepCopyMapParam(triggerParam)
 				exeParam["job_param"] = deepCopyMapParam(jobParam)
 
 				h.infof(`[:Herald:Router:%s:] Execute job "%s(%s)" with executor "%s"`,
@@ -449,14 +378,13 @@ func (h *Herald) Stop() {
 // If no output is needed, just pass nil.
 func New(logger Logger) *Herald {
 	h := &Herald{
-		logger:       logger,
-		exeDone:      make(chan map[string]interface{}),
-		triggers:     make(map[string]Trigger),
-		executors:    make(map[string]Executor),
-		selectors:    make(map[string]Selector),
-		transformers: make(map[string]Transformer),
-		routers:      make(map[string]*router),
-		jobs:         make(map[string]*job),
+		logger:    logger,
+		exeDone:   make(chan map[string]interface{}),
+		triggers:  make(map[string]Trigger),
+		executors: make(map[string]Executor),
+		selectors: make(map[string]Selector),
+		routers:   make(map[string]*router),
+		jobs:      make(map[string]*job),
 	}
 	h.AddTrigger(triggerExecutionDoneName, &executionDone{
 		exeResult: h.exeDone,

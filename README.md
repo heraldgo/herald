@@ -49,8 +49,8 @@ import "github.com/heraldgo/herald"
 ## Example
 
 Here is a simple example which shows how to write a herald program.
-It shows how to write trigger, executor and selector.
-Also how to setup the herald workflow.
+It includes how to write trigger, executor and selector,
+also how to setup the herald workflow.
 
 
 ```go
@@ -110,7 +110,7 @@ func newHerald() *herald.Herald {
 	h.AddExecutor("print", &printParam{})
 	h.AddSelector("all", &all{})
 
-	h.AddRouter("tick_test", "tick", "all", "", nil)
+	h.AddRouter("tick_test", "tick", "all", nil)
 	h.AddRouterJob("tick_test", "print_it", "print")
 
 	return h
