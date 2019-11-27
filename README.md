@@ -1,7 +1,7 @@
 # Herald
 
 Herald is a library written in [Go](https://golang.org/)
-for managing common server maintenance tasks.
+for simplifying common server maintenance tasks.
 
 In case you need a ready-to-use program, try the
 [Herald Daemon](https://github.com/heraldgo/heraldd)
@@ -45,7 +45,6 @@ import "github.com/heraldgo/herald"
 ## Example
 
 Here is a simple example which shows how to write a herald program.
-It could also be installed by `go get -u github.com/heraldgo/herald/herald-example`
 
 ```go
 package main
@@ -126,3 +125,4 @@ func main() {
 	log.Printf("Exit...")
 }
 ```
+A full example could also be installed by `go get -u github.com/heraldgo/herald/herald-example`.
