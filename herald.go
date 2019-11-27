@@ -10,8 +10,7 @@ import (
 	"sync"
 )
 
-// Logger is an interface for common log.
-// logrus (https://github.com/sirupsen/logrus) could be used directly.
+// Logger is an interface for logging herald status.
 type Logger interface {
 	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
@@ -445,8 +444,9 @@ func (h *Herald) Stop() {
 // New will create a new Herald instance.
 // The herald instance is almost empty and only include an "exe_done" trigger.
 // The "exe_done" trigger will be activated after a job execution finished.
+//
 // A Logger interface could be passed as argument to log the herald status.
-// If no output is needed, just pass nil to the logger.
+// If no output is needed, just pass nil.
 func New(logger Logger) *Herald {
 	h := &Herald{
 		logger:       logger,

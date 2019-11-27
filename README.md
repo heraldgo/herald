@@ -137,3 +137,49 @@ A full example could also be installed by `go get -u github.com/heraldgo/herald/
 
 
 ## Logging
+
+The `New()` function accept an `Logger` interface as argument.
+
+```go
+import (
+	"log"
+)
+
+type simpleLogger struct{}
+
+// Debugf is ignored
+func (l *simpleLogger) Debugf(f string, v ...interface{}) {}
+
+func (l *simpleLogger) Infof(f string, v ...interface{}) {
+	log.Printf("[INFO] "+f, v...)
+}
+
+func (l *simpleLogger) Warnf(f string, v ...interface{}) {
+	log.Printf("[WARN] "+f, v...)
+}
+
+func (l *simpleLogger) Errorf(f string, v ...interface{}) {
+	log.Printf("[ERROR] "+f, v...)
+}
+
+func main() *herald.Herald {
+	h := herald.New(&simpleLogger{})
+	...
+}
+```
+
+[logrus](https://github.com/sirupsen/logrus) is a good choice for
+`Logger` interface.
+
+```go
+import (
+	"github.com/sirupsen/logrus"
+)
+
+func main() *herald.Herald {
+	h := herald.New(logrus.New())
+	...
+}
+```
+
+The logger could be share between `Herald` and your application.
