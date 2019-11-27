@@ -4,11 +4,14 @@ package herald
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"reflect"
 	"sync"
 )
 
-// Logger is an interface for common log
+// Logger is an interface for common log.
+// logrus (https://github.com/sirupsen/logrus) could be used directly.
 type Logger interface {
 	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
@@ -16,19 +19,19 @@ type Logger interface {
 	Errorf(string, ...interface{})
 }
 
-// Trigger should send trigger events to the core
+// Trigger should send trigger events to herald.
 type Trigger interface {
 	Run(context.Context, func(map[string]interface{}))
 }
 
 const triggerExecutionDoneName = "exe_done"
 
-// executionDone is an internal trigger activated after job finished on executor
+// executionDone is an internal trigger activated after job finished on executor.
 type executionDone struct {
 	exeResult chan map[string]interface{}
 }
 
-// Run start the execution done trigger
+// Run start the execution done trigger.
 func (tgr *executionDone) Run(ctx context.Context, sendParam func(map[string]interface{})) {
 	for {
 		select {
@@ -40,17 +43,17 @@ func (tgr *executionDone) Run(ctx context.Context, sendParam func(map[string]int
 	}
 }
 
-// Executor will do the execution
+// Executor will execute the job according to the param argument.
 type Executor interface {
 	Execute(param map[string]interface{}) map[string]interface{}
 }
 
-// Selector will decide whether jobs should be executed
+// Selector will decide whether jobs should be executed.
 type Selector interface {
 	Select(triggerParam, selectorParam map[string]interface{}) bool
 }
 
-// Transformer will transform trigger param
+// Transformer will transform trigger param for selector or executor.
 type Transformer interface {
 	Transform(triggerParam map[string]interface{}) map[string]interface{}
 }
@@ -60,14 +63,17 @@ type job struct {
 }
 
 type router struct {
-	trigger     string
-	jobs        map[string]string
-	selector    string
-	transformer string
-	param       map[string]interface{}
+	trigger             string
+	jobs                map[string]string
+	selector            string
+	transformerSelector string
+	transformerExecutor string
+	param               map[string]interface{}
 }
 
-// Herald is the core struct
+// Herald is the core struct.
+// Do not instantiate Herald explicitly.
+// Use New() function instead.
 type Herald struct {
 	logger       Logger
 	cancel       context.CancelFunc
@@ -105,105 +111,154 @@ func (h *Herald) errorf(f string, v ...interface{}) {
 	}
 }
 
-// GetTrigger will get a trigger
-func (h *Herald) GetTrigger(name string) (Trigger, bool) {
-	tgr, ok := h.triggers[name]
-	return tgr, ok
+// GetTrigger will get a trigger.
+// If the trigger does exist, it will return nil.
+func (h *Herald) GetTrigger(name string) Trigger {
+	return h.triggers[name]
 }
 
-// GetExecutor will get a executor
-func (h *Herald) GetExecutor(name string) (Executor, bool) {
-	exe, ok := h.executors[name]
-	return exe, ok
+// GetExecutor will get an executor.
+// If the executor does exist, it will return nil.
+func (h *Herald) GetExecutor(name string) Executor {
+	return h.executors[name]
 }
 
-// GetSelector will get a selector
-func (h *Herald) GetSelector(name string) (Selector, bool) {
-	slt, ok := h.selectors[name]
-	return slt, ok
+// GetSelector will get a selector.
+// If the selector does exist, it will return nil.
+func (h *Herald) GetSelector(name string) Selector {
+	return h.selectors[name]
 }
 
-// GetTransformer will get a selector
-func (h *Herald) GetTransformer(name string) (Transformer, bool) {
-	tfm, ok := h.transformers[name]
-	return tfm, ok
+// GetTransformer will get a transformer.
+// If the transformer does exist, it will return nil.
+func (h *Herald) GetTransformer(name string) Transformer {
+	return h.transformers[name]
 }
 
-// AddTrigger will add a trigger
-func (h *Herald) AddTrigger(name string, tgr Trigger) {
+// AddTrigger will add a trigger.
+// Please specify a name to use in router.
+// If the name already exists, the old one will be overwritten
+func (h *Herald) AddTrigger(name string, tgr Trigger) error {
+	if name == "" {
+		return errors.New("Trigger name could not be empty")
+	}
+	if tgr == nil {
+		return errors.New("Trigger could not be nil")
+	}
 	h.triggers[name] = tgr
+	return nil
 }
 
-// AddExecutor will add a executor
-func (h *Herald) AddExecutor(name string, exe Executor) {
+// AddExecutor will add a executor.
+// Please specify a name to use in router.
+// If the name already exists, the old one will be overwritten
+func (h *Herald) AddExecutor(name string, exe Executor) error {
+	if name == "" {
+		return errors.New("Executor name could not be empty")
+	}
+	if exe == nil {
+		return errors.New("Executor could not be nil")
+	}
 	h.executors[name] = exe
+	return nil
 }
 
-// AddSelector will add a selector
-func (h *Herald) AddSelector(name string, slt Selector) {
+// AddSelector will add a selector.
+// Please specify a name to use in router.
+// If the name already exists, the old one will be overwritten
+func (h *Herald) AddSelector(name string, slt Selector) error {
+	if name == "" {
+		return errors.New("Selector name could not be empty")
+	}
+	if slt == nil {
+		return errors.New("Selector could not be nil")
+	}
 	h.selectors[name] = slt
+	return nil
 }
 
-// AddTransformer will add a transformer
-func (h *Herald) AddTransformer(name string, tfm Transformer) {
+// AddTransformer will add a transformer.
+// Please specify a name to use in router.
+// If the name already exists, the old one will be overwritten
+func (h *Herald) AddTransformer(name string, tfm Transformer) error {
+	if name == "" {
+		return errors.New("Transformer name could not be empty")
+	}
+	if tfm == nil {
+		return errors.New("Transformer could not be nil")
+	}
 	h.transformers[name] = tfm
+	return nil
 }
 
-// AddRouter will add executor and param
-func (h *Herald) AddRouter(name, trigger, selector, transformer string, param map[string]interface{}) {
+// AddRouter will create a router.
+// The router defines the rule for executing the job.
+// When the trigger is activated, then try to
+// The transformer is optional.
+func (h *Herald) AddRouter(name, trigger, selector, transformerSelector, transformerExecutor string, param map[string]interface{}) error {
 	if selector != "" {
 		_, ok := h.selectors[selector]
 		if !ok {
-			h.errorf("[:Herald:] Selector not found : %s", selector)
-			return
+			return fmt.Errorf("Selector does not exist : %s", selector)
 		}
 	}
 
-	if transformer != "" {
-		_, ok := h.transformers[transformer]
+	if transformerSelector != "" {
+		_, ok := h.transformers[transformerSelector]
 		if !ok {
-			h.errorf("[:Herald:] Transformer not found : %s", transformer)
-			return
+			return fmt.Errorf("Transformer for selector does not exist : %s", transformerSelector)
+		}
+	}
+	if transformerExecutor != "" {
+		_, ok := h.transformers[transformerExecutor]
+		if !ok {
+			return fmt.Errorf("Transformer for executor does not exist : %s", transformerExecutor)
 		}
 	}
 
 	_, ok := h.triggers[trigger]
 	if !ok {
-		h.errorf("[:Herald:] Trigger not found: %s", trigger)
-		return
+		return fmt.Errorf("Trigger does not exist: %s", trigger)
 	}
 
 	h.routers[name] = &router{
-		trigger:     trigger,
-		selector:    selector,
-		transformer: transformer,
-		jobs:        make(map[string]string),
-		param:       deepCopyMapParam(param),
+		trigger:             trigger,
+		selector:            selector,
+		transformerSelector: transformerSelector,
+		transformerExecutor: transformerExecutor,
+		jobs:                make(map[string]string),
+		param:               deepCopyMapParam(param),
 	}
+	return nil
 }
 
-// AddRouterJob will add executor and param
-func (h *Herald) AddRouterJob(routerName, jobName, executor string) {
+// AddRouterJob will add a job to the router.
+// A job is assigned to an executor.
+func (h *Herald) AddRouterJob(routerName, jobName, executor string) error {
 	_, ok := h.routers[routerName]
 	if !ok {
-		h.errorf("[:Herald:] Router not found : %s", routerName)
-		return
+		return fmt.Errorf("Router does not exist : %s", routerName)
 	}
 
 	_, ok = h.executors[executor]
 	if !ok {
-		h.errorf("[:Herald:] Executor not found: %s", executor)
-		return
+		return fmt.Errorf("Executor does not exist: %s", executor)
 	}
 
 	h.routers[routerName].jobs[jobName] = executor
+	return nil
 }
 
-// SetJobParam will set job specified param
-func (h *Herald) SetJobParam(name string, param map[string]interface{}) {
+// SetJobParam will set extra job specified param.
+// The job param is optional.
+func (h *Herald) SetJobParam(name string, param map[string]interface{}) error {
+	if name == "" {
+		return errors.New("Job name could not be empty")
+	}
 	h.jobs[name] = &job{
 		param: deepCopyMapParam(param),
 	}
+	return nil
 }
 
 func (h *Herald) start(ctx context.Context) {
@@ -262,22 +317,35 @@ func (h *Herald) start(ctx context.Context) {
 
 			h.debugf(`[:Herald:Router:%s:] Trigger "%s(%s)" matched`, routerName, triggerName, triggerID)
 
-			// transformer
-			finalTriggerParam := triggerParam
-			if r.transformer != "" {
-				tfm, ok := h.transformers[r.transformer]
+			// transformer for selector
+			finalTriggerParamSelector := triggerParam
+			if r.transformerSelector != "" {
+				tfm, ok := h.transformers[r.transformerSelector]
 				if !ok {
-					h.errorf(`[:Herald:Router:%s:] Transformer "%s" not found`, routerName, r.transformer)
+					h.errorf(`[:Herald:Router:%s:] Transformer for selector "%s" does not exist`, routerName, r.transformerSelector)
 					continue
 				} else {
-					finalTriggerParam = tfm.Transform(deepCopyMapParam(triggerParam))
-					h.infof(`[:Herald:Router:%s:] Trigger param transformed by "%s"`, routerName, r.transformer)
+					finalTriggerParamSelector = tfm.Transform(deepCopyMapParam(triggerParam))
+					h.infof(`[:Herald:Router:%s:] Trigger param for selector transformed by "%s"`, routerName, r.transformerSelector)
+				}
+			}
+
+			// transformer for executor
+			finalTriggerParamExecutor := triggerParam
+			if r.transformerExecutor != "" {
+				tfm, ok := h.transformers[r.transformerExecutor]
+				if !ok {
+					h.errorf(`[:Herald:Router:%s:] Transformer for executor "%s" does not exist`, routerName, r.transformerExecutor)
+					continue
+				} else {
+					finalTriggerParamExecutor = tfm.Transform(deepCopyMapParam(triggerParam))
+					h.infof(`[:Herald:Router:%s:] Trigger param transformed by "%s"`, routerName, r.transformerExecutor)
 				}
 			}
 
 			for jobName, executorName := range r.jobs {
 				if r.selector == "" {
-					h.debugf(`[:Herald:Router:%s:] Selector not found`, routerName)
+					h.debugf(`[:Herald:Router:%s:] Selector does not exist`, routerName)
 					continue
 				}
 
@@ -293,10 +361,10 @@ func (h *Herald) start(ctx context.Context) {
 				// selector
 				slt, ok := h.selectors[r.selector]
 				if !ok {
-					h.errorf(`[:Herald:Router:%s:] Selector "%s" not found`, routerName, r.selector)
+					h.errorf(`[:Herald:Router:%s:] Selector "%s" does not exist`, routerName, r.selector)
 					continue
 				}
-				if !slt.Select(deepCopyMapParam(triggerParam), deepCopyMapParam(jobParam)) {
+				if !slt.Select(deepCopyMapParam(finalTriggerParamSelector), deepCopyMapParam(jobParam)) {
 					continue
 				}
 				h.debugf(`[:Herald:Router:%s:] Selector "%s" accepts trigger "%s(%s)" for job "%s"`,
@@ -307,15 +375,16 @@ func (h *Herald) start(ctx context.Context) {
 				exeParam := make(map[string]interface{})
 				exeParam["id"] = jobID
 				exeParam["info"] = map[string]interface{}{
-					"trigger_id":  triggerID,
-					"trigger":     triggerName,
-					"router":      routerName,
-					"job":         jobName,
-					"selector":    r.selector,
-					"transformer": r.transformer,
-					"executor":    executorName,
+					"trigger_id":           triggerID,
+					"trigger":              triggerName,
+					"router":               routerName,
+					"job":                  jobName,
+					"selector":             r.selector,
+					"transformer_selector": r.transformerSelector,
+					"transformer_executor": r.transformerExecutor,
+					"executor":             executorName,
 				}
-				exeParam["trigger_param"] = deepCopyMapParam(finalTriggerParam)
+				exeParam["trigger_param"] = deepCopyMapParam(finalTriggerParamExecutor)
 				exeParam["job_param"] = deepCopyMapParam(jobParam)
 
 				h.infof(`[:Herald:Router:%s:] Execute job "%s(%s)" with executor "%s"`,
@@ -342,7 +411,8 @@ func (h *Herald) start(ctx context.Context) {
 	}
 }
 
-// Start the herald server
+// Start the herald server.
+// This function will return immediately and run in the background.
 func (h *Herald) Start() {
 	if h.cancel != nil {
 		h.warnf("[:Herald:] Herald is already started")
@@ -372,7 +442,11 @@ func (h *Herald) Stop() {
 	h.wg.Wait()
 }
 
-// New will create a new Herald instance
+// New will create a new Herald instance.
+// The herald instance is almost empty and only include an "exe_done" trigger.
+// The "exe_done" trigger will be activated after a job execution finished.
+// A Logger interface could be passed as argument to log the herald status.
+// If no output is needed, just pass nil to the logger.
 func New(logger Logger) *Herald {
 	h := &Herald{
 		logger:       logger,

@@ -94,7 +94,7 @@ func newHerald() *herald.Herald {
 
 	h.AddSelector("skip", &skip{})
 
-	h.AddRouter("skip_test", "tick", "skip", "", map[string]interface{}{
+	h.AddRouter("skip_test", "tick", "skip", "", "", map[string]interface{}{
 		"skip_number": 2,
 	})
 
