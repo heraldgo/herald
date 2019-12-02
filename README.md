@@ -212,29 +212,6 @@ func main() {
 ```
 
 
-## Router
-
-This is what a router looks like:
-
-```
-trigger: trigger_name
-selector: selector_name
-job:
-  job1: executor1_name
-  job2: executor2_name
-  job3: executor3_name
-router_param:
-  key1: value1
-  key2: value2
-```
-
-Register a router to herald:
-
-```go
-h.RegisterRouter("router_name", "trigger_name", "selector_name", router_param)
-```
-
-
 ## Trigger
 
 The trigger will run in the background and should send activation signal
@@ -281,6 +258,8 @@ passed to another goroutine, it is better to send a new param variable each time
 
 Register the trigger in herald with a name.
 Each trigger has a name which will be used as an identifier in router.
+The name must be all different for triggers. Registering a same name will
+overwrite the old one.
 
 ```go
 h.RegisterTrigger("tick", &tick{
@@ -313,9 +292,9 @@ tick trigger.
 type even struct{}
 
 func (slt *even) Select(triggerParam, jobParam map[string]interface{}) bool {
-    if triggerParam["counter"].(int) % 2 == 0 {
-        return true
-    }
+	if triggerParam["counter"].(int) % 2 == 0 {
+		return true
+	}
 	return false
 }
 ```
@@ -349,15 +328,15 @@ The `Execute` function must be implemented in the executor.
 "executor param" includes details of the job:
 
 ```
-id:
+id: F60CFC6A-2FDE-248D-6C35-C3EFD484014F
 info:
-  router:
-  trigger:
-  trigger_id:
-  selector:
-  job:
-trigger_param:
-job_param:
+  router: router_name
+  trigger: trigger_name
+  trigger_id: A8D875BC-5875-3BA7-EECB-F829A341F78E
+  selector: selector_name
+  job: job_name
+trigger_param: map[string]interface{}
+job_param: map[string]interface{}
 ```
 
 The returned map value of `Execute` will be used as the
@@ -365,3 +344,40 @@ The returned map value of `Execute` will be used as the
 
 > Each job will be executed in a separated goroutine. Try not to modify
 > any variables outside the function for safety reason.
+
+
+## Router
+
+The routers define when (trigger, selector) and
+how (executor) to execute certain jobs.
+One router includes a trigger, a selector, jobs and params.
+
+This is what a router looks like:
+
+```
+trigger: trigger_name
+selector: selector_name
+job:
+  job1: executor1_name
+  job2: executor2_name
+  job3: executor3_name
+router_param:
+  key1: value1
+  key2: value2
+```
+
+Register a router to herald:
+
+```go
+h.RegisterRouter("router_name", "trigger_name", "selector_name", router_param)
+```
+
+Add jobs to the router and specify the executor:
+
+```go
+h.AddRouterJob("router_name", "job1_name", "executor1_name")
+h.AddRouterJob("router_name", "job2_name", "executor1_name")
+h.AddRouterJob("router_name", "job3_name", "executor2_name")
+```
+
+The job names in the same router must be all different.
