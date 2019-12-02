@@ -67,8 +67,8 @@ func (exe *printParam) Execute(param map[string]interface{}) map[string]interfac
 // skip selector to skip certain numbers
 type skip struct{}
 
-func (slt *skip) Select(triggerParam, selectorParam map[string]interface{}) bool {
-	skipNumber, ok := selectorParam["skip_number"].(int)
+func (slt *skip) Select(triggerParam, jobParam map[string]interface{}) bool {
+	skipNumber, ok := jobParam["skip_number"].(int)
 	if !ok || skipNumber <= 0 {
 		return true
 	}

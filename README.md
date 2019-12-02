@@ -9,7 +9,7 @@ In case you need a ready-to-use program, try the
 [Herald Daemon](https://github.com/heraldgo/heraldd)
 which is based on Herald.
 
-It is not designed to do massive works.
+Herald is not designed to do massive works.
 It is suitable for jobs like daily backup, automatically program deployment,
 and other repetitive server maintenance tasks.
 
@@ -24,20 +24,16 @@ Herald consists of the following components:
 * Router
 * Job
 
-Herald does not provide implementation for trigger, selector and
-executor. They should be provided in your application.
+The core logic for herald is simple.
+The routers define when (trigger, selector) and
+how (executor) to execute certain jobs.
+When a specific trigger is actived, then the selector will check
+whether it is OK to execute subsequent jobs.
+
+Herald does not provide implementation for trigger, selector and executor.
+They are defined as interfaces and should be provided in your application.
 [Herald Daemon](https://github.com/heraldgo/heraldd) has already
 defined some useful components.
-
-
-### Trigger
-
-`exe_done` is a predefined trigger which will be activated when an
-execution is done. The result of the executor is used as `triggerParam`,
-which could be passed to selector and executor.
-
-### Selector
-### Executor
 
 
 ## Installation
@@ -62,6 +58,8 @@ Here is a simple example which shows how to write a herald program.
 It includes how to write trigger, executor and selector,
 also how to setup the herald workflow.
 
+This example will be activated every 2 seconds and print the job param.
+Press `Ctrl+C` to exit.
 
 ```go
 package main
@@ -107,7 +105,7 @@ func (exe *printParam) Execute(param map[string]interface{}) map[string]interfac
 // all selector pass all conditions
 type all struct{}
 
-func (slt *all) Select(triggerParam, selectorParam map[string]interface{}) bool {
+func (slt *all) Select(triggerParam, jobParam map[string]interface{}) bool {
 	return true
 }
 
@@ -143,16 +141,8 @@ func main() {
 }
 ```
 
-A full example could also be installed by `go get -u github.com/heraldgo/herald/herald-example`.
-
-
-## Workflow
-
-Create a herald instance by the `New` function:
-
-```go
-h := herald.New(nil)
-```
+A full example could also be installed by `go get -u github.com/heraldgo/herald/herald-example`
+and then run `herald-example`.
 
 
 ## Logging
@@ -220,3 +210,158 @@ func main() {
 	...
 }
 ```
+
+
+## Router
+
+This is what a router looks like:
+
+```
+trigger: trigger_name
+selector: selector_name
+job:
+  job1: executor1_name
+  job2: executor2_name
+  job3: executor3_name
+router_param:
+  key1: value1
+  key2: value2
+```
+
+Register a router to herald:
+
+```go
+h.RegisterRouter("router_name", "trigger_name", "selector_name", router_param)
+```
+
+
+## Trigger
+
+The trigger will run in the background and should send activation signal
+under certain conditions.
+
+An example for trigger which will be activated periodically:
+
+```go
+import (
+	"time"
+)
+
+type tick struct {
+	interval time.Duration
+}
+
+func (tgr *tick) Run(ctx context.Context, sendParam func(map[string]interface{})) {
+	ticker := time.NewTicker(tgr.interval)
+	defer ticker.Stop()
+
+	counter := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			counter++
+			sendParam(map[string]interface{}{"counter": counter})
+		}
+	}
+}
+```
+
+The `Run` function must be implemented in the trigger. The `Run` function
+will keep running in the background after `Herald.Start`.
+It should deal with `ctx.Done()` properly in order to exit gracefully,
+or the program may be blocked when trying to stop.
+
+A map param could be sent to herald when it is activated. This param
+will be used as "trigger param" and passed to selector and executor.
+The param should be a json-like object,
+so it is flexible to put complex data in it. Since this param will be
+passed to another goroutine, it is better to send a new param variable each time.
+
+Register the trigger in herald with a name.
+Each trigger has a name which will be used as an identifier in router.
+
+```go
+h.RegisterTrigger("tick", &tick{
+	interval: 2 * time.Second,
+})
+```
+
+There could be many different triggers registered in herald. It is not
+recommended to register the same trigger instance with different names.
+In this case you must do it with great care in the trigger because
+they will run in different goroutines.
+It is better to create a new instance for the new trigger name.
+
+> `exe_done` is the only predefined trigger which will be activated when an
+> execution is done. The result of the executor is used as "trigger param",
+> which could be passed to selector and executor.
+> Do NOT register your trigger with name `exe_done`, which will overwrite the
+> internal one.
+
+
+## Selector
+
+A selector will filter out from the "trigger param" to determine whether
+or not to run the following jobs.
+
+An example of selector which will only accept the even activation of the
+tick trigger.
+
+```go
+type even struct{}
+
+func (slt *even) Select(triggerParam, jobParam map[string]interface{}) bool {
+    if triggerParam["counter"].(int) % 2 == 0 {
+        return true
+    }
+	return false
+}
+```
+
+> Here ignores type assertion error for the param.
+> You may need more checks in order not to panic.
+
+The `Select` function must be implemented in the selector.
+`Select` function accept "trigger param" and "job param" as
+arguments. "trigger param" is passed from the trigger and "job
+param" is the combination of the "router param" and "job specific param".
+The returned boolean value determines whether to proceed.
+
+
+## Executor
+
+An executor will execute the job according to "param".
+
+An example of executor which will just print the param.
+
+```go
+type printParam struct{}
+
+func (exe *printParam) Execute(param map[string]interface{}) map[string]interface{} {
+	log.Printf("Execute with param: %v", param)
+	return nil
+}
+```
+
+The `Execute` function must be implemented in the executor.
+"executor param" includes details of the job:
+
+```
+id:
+info:
+  router:
+  trigger:
+  trigger_id:
+  selector:
+  job:
+trigger_param:
+job_param:
+```
+
+The returned map value of `Execute` will be used as the
+"trigger param" of internal `exe_done` trigger.
+
+> Each job will be executed in a separated goroutine. Try not to modify
+> any variables outside the function for safety reason.

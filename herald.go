@@ -49,7 +49,7 @@ type Executor interface {
 
 // Selector will decide whether jobs should be executed.
 type Selector interface {
-	Select(triggerParam, selectorParam map[string]interface{}) bool
+	Select(triggerParam, jogParam map[string]interface{}) bool
 }
 
 type job struct {
