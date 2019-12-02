@@ -114,13 +114,13 @@ func (slt *all) Select(triggerParam, selectorParam map[string]interface{}) bool 
 func newHerald() *herald.Herald {
 	h := herald.New(nil)
 
-	h.AddTrigger("tick", &tick{
+	h.RegisterTrigger("tick", &tick{
 		interval: 2 * time.Second,
 	})
-	h.AddExecutor("print", &printParam{})
-	h.AddSelector("all", &all{})
+	h.RegisterExecutor("print", &printParam{})
+	h.RegisterSelector("all", &all{})
 
-	h.AddRouter("tick_test", "tick", "all", nil)
+	h.RegisterRouter("tick_test", "tick", "all", nil)
 	h.AddRouterJob("tick_test", "print_it", "print")
 
 	return h
@@ -182,7 +182,7 @@ func (l *simpleLogger) Errorf(f string, v ...interface{}) {
 	log.Printf("[ERROR] "+f, v...)
 }
 
-func main() *herald.Herald {
+func main() {
 	h := herald.New(&simpleLogger{})
 	...
 }
@@ -196,7 +196,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func main() *herald.Herald {
+func main() {
 	h := herald.New(logrus.New())
 	...
 }
@@ -209,7 +209,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func main() *herald.Herald {
+func main() {
 	logger := logrus.New()
 	logger.SetLevel(logrus.DebugLevel)
 

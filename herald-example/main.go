@@ -84,17 +84,17 @@ func (slt *skip) Select(triggerParam, selectorParam map[string]interface{}) bool
 func newHerald() *herald.Herald {
 	h := herald.New(logger)
 
-	h.AddTrigger("tick", &tick{
+	h.RegisterTrigger("tick", &tick{
 		interval: 3 * time.Second,
 	})
 
-	h.AddExecutor("print", &printParam{
+	h.RegisterExecutor("print", &printParam{
 		logger: logger,
 	})
 
-	h.AddSelector("skip", &skip{})
+	h.RegisterSelector("skip", &skip{})
 
-	h.AddRouter("skip_test", "tick", "skip", map[string]interface{}{
+	h.RegisterRouter("skip_test", "tick", "skip", map[string]interface{}{
 		"skip_number": 2,
 	})
 
