@@ -120,10 +120,10 @@ func (h *Herald) GetSelector(name string) Selector {
 	return h.selectors[name]
 }
 
-// AddTrigger will add a trigger.
+// RegisterTrigger will register a trigger.
 // Please specify a name to use in router.
 // If the name already exists, the old one will be overwritten.
-func (h *Herald) AddTrigger(name string, tgr Trigger) error {
+func (h *Herald) RegisterTrigger(name string, tgr Trigger) error {
 	if name == "" {
 		return errors.New("Trigger name could not be empty")
 	}
@@ -134,10 +134,10 @@ func (h *Herald) AddTrigger(name string, tgr Trigger) error {
 	return nil
 }
 
-// AddExecutor will add an executor.
+// RegisterExecutor will register an executor.
 // Please specify a name to use in router.
 // If the name already exists, the old one will be overwritten.
-func (h *Herald) AddExecutor(name string, exe Executor) error {
+func (h *Herald) RegisterExecutor(name string, exe Executor) error {
 	if name == "" {
 		return errors.New("Executor name could not be empty")
 	}
@@ -148,10 +148,10 @@ func (h *Herald) AddExecutor(name string, exe Executor) error {
 	return nil
 }
 
-// AddSelector will add a selector.
+// RegisterSelector will register a selector.
 // Please specify a name to use in router.
 // If the name already exists, the old one will be overwritten.
-func (h *Herald) AddSelector(name string, slt Selector) error {
+func (h *Herald) RegisterSelector(name string, slt Selector) error {
 	if name == "" {
 		return errors.New("Selector name could not be empty")
 	}
@@ -162,11 +162,11 @@ func (h *Herald) AddSelector(name string, slt Selector) error {
 	return nil
 }
 
-// AddRouter will create a router.
+// RegisterRouter will create a router.
 // The router defines the rule for executing the job.
 // When the trigger is activated, then try to use selector
 // to check whether to execute jobs.
-func (h *Herald) AddRouter(name, trigger, selector string, param map[string]interface{}) error {
+func (h *Herald) RegisterRouter(name, trigger, selector string, param map[string]interface{}) error {
 	if selector != "" {
 		_, ok := h.selectors[selector]
 		if !ok {
@@ -206,7 +206,7 @@ func (h *Herald) AddRouterJob(routerName, jobName, executor string) error {
 }
 
 // SetJobParam will set extra job specified param.
-// The job param is optional.
+// This job param is optional.
 func (h *Herald) SetJobParam(name string, param map[string]interface{}) error {
 	if name == "" {
 		return errors.New("Job name could not be empty")
@@ -386,7 +386,7 @@ func New(logger Logger) *Herald {
 		routers:   make(map[string]*router),
 		jobs:      make(map[string]*job),
 	}
-	h.AddTrigger(triggerExecutionDoneName, &executionDone{
+	h.RegisterTrigger(triggerExecutionDoneName, &executionDone{
 		exeResult: h.exeDone,
 	})
 	return h

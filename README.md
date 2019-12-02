@@ -3,13 +3,15 @@
 [![GoDoc](https://godoc.org/github.com/heraldgo/herald?status.svg)](https://godoc.org/github.com/heraldgo/herald)
 
 Herald is a library written in [Go](https://golang.org/)
-for simplifying common server maintenance tasks.
+for simplifying ordinary server maintenance tasks.
 
 In case you need a ready-to-use program, try the
 [Herald Daemon](https://github.com/heraldgo/heraldd)
 which is based on Herald.
 
-It is not designed to do intense
+It is not designed to do massive works.
+It is suitable for jobs like daily backup, automatically program deployment,
+and other repetitive server maintenance tasks.
 
 
 ## Components
@@ -18,15 +20,23 @@ Herald consists of the following components:
 
 * Trigger
 * Selector
-* Transformer
 * Executor
 * Router
 * Job
 
+Herald does not provide implementation for trigger, selector and
+executor. They should be provided in your application.
+[Herald Daemon](https://github.com/heraldgo/heraldd) has already
+defined some useful components.
+
 
 ### Trigger
+
+`exe_done` is a predefined trigger which will be activated when an
+execution is done. The result of the executor is used as `triggerParam`,
+which could be passed to selector and executor.
+
 ### Selector
-### Transformer
 ### Executor
 
 
@@ -136,9 +146,19 @@ func main() {
 A full example could also be installed by `go get -u github.com/heraldgo/herald/herald-example`.
 
 
+## Workflow
+
+Create a herald instance by the `New` function:
+
+```go
+h := herald.New(nil)
+```
+
+
 ## Logging
 
 The `New()` function accept an `Logger` interface as argument.
+Here is a simple implementation.
 
 ```go
 import (
@@ -168,8 +188,8 @@ func main() *herald.Herald {
 }
 ```
 
-[logrus](https://github.com/sirupsen/logrus) is a good choice for
-`Logger` interface.
+If [logrus](https://github.com/sirupsen/logrus) is preferred,
+`*logrus.Logger` is natively an implementation of `Logger` interface.
 
 ```go
 import (
@@ -182,4 +202,21 @@ func main() *herald.Herald {
 }
 ```
 
-The logger could be share between `Herald` and your application.
+The logger could also be shared between `Herald` and your application.
+
+```go
+import (
+	"github.com/sirupsen/logrus"
+)
+
+func main() *herald.Herald {
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	h := herald.New(logger)
+
+	logger.Info("Start to run herald")
+	h.Start()
+	...
+}
+```
