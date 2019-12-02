@@ -358,9 +358,9 @@ This is what a router looks like:
 trigger: trigger_name
 selector: selector_name
 job:
-  job1: executor1_name
-  job2: executor2_name
-  job3: executor3_name
+  job1_name: executor1_name
+  job2_name: executor1_name
+  job3_name: executor2_name
 router_param:
   key1: value1
   key2: value2
@@ -369,7 +369,7 @@ router_param:
 Register a router to herald:
 
 ```go
-h.RegisterRouter("router_name", "trigger_name", "selector_name", router_param)
+h.RegisterRouter("router_name", "trigger_name", "selector_name", routerParam)
 ```
 
 Add jobs to the router and specify the executor:
@@ -381,3 +381,26 @@ h.AddRouterJob("router_name", "job3_name", "executor2_name")
 ```
 
 The job names in the same router must be all different.
+
+
+## Job
+
+A job defines the job param which will be passed to an selector or executor.
+It is created when executing `AddRouterJob`:
+
+```go
+h.AddRouterJob("router_name", "job_name", "executor_name")
+```
+
+The "job param" is the combination of the "router param" and "job specific param".
+In case there are conflicts, the "job specific param" has higher
+priority.
+
+The "job specific param" is optional. It is set by:
+
+```go
+h.SetJobParam("job_name", jobSpecParam)
+```
+
+The same job name could be used among different routers, which will
+share the same "job specific param".
