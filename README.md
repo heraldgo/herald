@@ -293,8 +293,8 @@ It is better to create a new instance for the new trigger name.
 A selector will filter out from the "trigger param" to determine whether
 or not to run the following jobs.
 
-An example of selector which will only accept the even activation of the
-tick trigger.
+This is an example of selector which will only accept the even number of
+activation for the tick trigger.
 
 ```go
 type even struct{}
@@ -321,7 +321,7 @@ The returned boolean value determines whether to proceed.
 
 An executor will execute the job according to "param".
 
-An example of executor which will just print the param.
+This is an example of executor which will just print the param.
 
 ```go
 type printParam struct{}
