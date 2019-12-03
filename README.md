@@ -217,7 +217,15 @@ func main() {
 The trigger will run in the background and should send activation signal
 under certain conditions.
 
-An example for trigger which will be activated periodically:
+The trigger is defined as an interface:
+
+```go
+type Trigger interface {
+	Run(context.Context, func(map[string]interface{}))
+}
+```
+
+This is an example of trigger which will be activated periodically:
 
 ```go
 import (
