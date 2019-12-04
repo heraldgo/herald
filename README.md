@@ -3,7 +3,8 @@
 [![GoDoc](https://godoc.org/github.com/heraldgo/herald?status.svg)](https://godoc.org/github.com/heraldgo/herald)
 
 Herald is a library written in [Go](https://golang.org/)
-for simplifying ordinary server maintenance tasks.
+for simplifying ordinary server maintenance tasks. Check the
+[API doc on pkg.go.dev](https://pkg.go.dev/github.com/heraldgo/herald).
 
 In case you need a ready-to-use program, try the
 [Herald Daemon](https://github.com/heraldgo/heraldd)
@@ -32,8 +33,8 @@ whether it is OK to execute subsequent jobs.
 
 Herald does not provide implementation for trigger, selector and executor.
 They are defined as interfaces and should be provided in your application.
-[Herald Daemon](https://github.com/heraldgo/heraldd) has already
-defined some useful components.
+Some useful components could be found in
+[Herald Daemon](https://github.com/heraldgo/heraldd).
 
 
 ## Installation
