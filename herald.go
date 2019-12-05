@@ -302,18 +302,17 @@ func (h *Herald) start(ctx context.Context) {
 
 				// executor
 				jobID := pseudoUUID()
-				exeParam := make(map[string]interface{})
-				exeParam["id"] = jobID
-				exeParam["info"] = map[string]interface{}{
-					"trigger_id": triggerID,
-					"trigger":    triggerName,
-					"router":     routerName,
-					"job":        jobName,
-					"selector":   r.selector,
-					"executor":   executorName,
+				exeParam := map[string]interface{}{
+					"id":            jobID,
+					"trigger_id":    triggerID,
+					"trigger":       triggerName,
+					"router":        routerName,
+					"job":           jobName,
+					"selector":      r.selector,
+					"executor":      executorName,
+					"trigger_param": deepCopyMapParam(triggerParam),
+					"job_param":     deepCopyMapParam(jobParam),
 				}
-				exeParam["trigger_param"] = deepCopyMapParam(triggerParam)
-				exeParam["job_param"] = deepCopyMapParam(jobParam)
 
 				h.infof(`[:Herald:Router:%s:] Execute job "%s(%s)" with executor "%s"`,
 					routerName, jobName, jobID, executorName)
@@ -322,7 +321,7 @@ func (h *Herald) start(ctx context.Context) {
 					defer h.wg.Done()
 
 					result := exe.Execute(deepCopyMapParam(exeParam))
-					h.infof(`[:Herald:Job:%s:] Job "%s" finished`, exeParam["info"].(map[string]interface{})["job"], exeParam["id"])
+					h.infof(`[:Herald:Job:%s:] Job "%s" finished`, exeParam["job"], exeParam["id"])
 
 					resultMap := deepCopyMapParam(exeParam)
 					mergeMapParam(resultMap, result)

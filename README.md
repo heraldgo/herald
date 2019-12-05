@@ -338,12 +338,11 @@ The `Execute` function must be implemented in the executor.
 
 ```
 id: F60CFC6A-2FDE-248D-6C35-C3EFD484014F
-info:
-  router: router_name
-  trigger: trigger_name
-  trigger_id: A8D875BC-5875-3BA7-EECB-F829A341F78E
-  selector: selector_name
-  job: job_name
+trigger_id: A8D875BC-5875-3BA7-EECB-F829A341F78E
+router: router_name
+trigger: trigger_name
+selector: selector_name
+job: job_name
 trigger_param: map[string]interface{}
 job_param: map[string]interface{}
 ```
