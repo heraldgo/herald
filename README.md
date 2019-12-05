@@ -285,8 +285,8 @@ It is better to create a new instance for the new trigger name.
 > `exe_done` is the only predefined trigger which will be activated when an
 > execution is done. The result of the executor is used as "trigger param",
 > which could be passed to selector and executor.
-> Do NOT register your trigger with name `exe_done`, which will overwrite the
-> internal one.
+> Do **NOT** register your trigger with name `exe_done`, which will overwrite
+> the internal one.
 
 
 ## Selector
