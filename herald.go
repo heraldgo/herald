@@ -1,4 +1,4 @@
-// Package herald is a library
+// Package herald is a framework
 // for simplifying common server maintenance tasks.
 package herald
 

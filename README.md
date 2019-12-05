@@ -2,7 +2,7 @@
 
 [![GoDoc](https://godoc.org/github.com/heraldgo/herald?status.svg)](https://godoc.org/github.com/heraldgo/herald)
 
-Herald is a library written in [Go](https://golang.org/)
+Herald is a framework written in [Go](https://golang.org/)
 for simplifying ordinary server maintenance tasks. Check the
 [API doc on pkg.go.dev](https://pkg.go.dev/github.com/heraldgo/herald).
 
