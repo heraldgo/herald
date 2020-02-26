@@ -39,7 +39,7 @@ Some useful components could be found in
 
 ## Installation
 
-First install [Go](https://golang.org/) and setup the workspace,
+First [install Go](https://golang.org/doc/install) and setup the workspace,
 then use the following command to install `Herald`.
 
 ```shell
