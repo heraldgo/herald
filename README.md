@@ -2,8 +2,8 @@
 
 [![GoDoc](https://godoc.org/github.com/heraldgo/herald?status.svg)](https://godoc.org/github.com/heraldgo/herald)
 
-Herald is a framework written in [Go](https://golang.org/)
-for simplifying ordinary server maintenance tasks. Check the
+Herald is a task dispatch framework written in [Go](https://golang.org/)
+for simplifying the ordinary server maintenance. Check the
 [API doc on pkg.go.dev](https://pkg.go.dev/github.com/heraldgo/herald).
 
 In case you need a ready-to-use program, try the
