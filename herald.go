@@ -324,7 +324,7 @@ func (h *Herald) start(ctx context.Context) {
 					h.infof(`[:Herald:Job:%s:] Job "%s" finished`, exeParam["job"], exeParam["id"])
 
 					resultMap := deepCopyMapParam(exeParam)
-					mergeMapParam(resultMap, result)
+					resultMap["result"] = result
 
 					if h.exeDone != nil {
 						select {
