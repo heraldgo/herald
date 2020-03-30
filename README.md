@@ -1,6 +1,7 @@
 # Herald
 
 [![GoDoc](https://godoc.org/github.com/heraldgo/herald?status.svg)](https://godoc.org/github.com/heraldgo/herald)
+[![Go Report Card](https://goreportcard.com/badge/github.com/heraldgo/herald)](https://goreportcard.com/report/github.com/heraldgo/herald)
 
 Herald is a task dispatch framework written in [Go](https://golang.org/)
 for simplifying the ordinary server maintenance. Check the
