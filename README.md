@@ -120,8 +120,8 @@ func newHerald() *herald.Herald {
 	h.RegisterExecutor("print", &printParam{})
 	h.RegisterSelector("all", &all{})
 
-	h.RegisterRouter("tick_test", "tick", "all", nil)
-	h.AddRouterJob("tick_test", "print_it", "print")
+	h.RegisterRouter("tick_test", "tick", "all")
+	h.AddRouterJob("tick_test", "print_it", "print", nil, nil)
 
 	return h
 }
