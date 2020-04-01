@@ -60,7 +60,7 @@ Here is a simple example which shows how to write a herald program.
 It includes how to write trigger, executor and selector,
 also how to setup the herald workflow.
 
-This example will be activated every 2 seconds and print the job param.
+This example will be activated every 2 seconds and print the execute param.
 Press `Ctrl+C` to exit.
 
 ```go
@@ -314,9 +314,9 @@ func (slt *even) Select(triggerParam, selectParam map[string]interface{}) bool {
 > You may need more checks in order not to panic.
 
 The `Select` function must be implemented in the selector.
-`Select` function accept "trigger param" and "job param" as
-arguments. "trigger param" is passed from the trigger and "job
-param" is the combination of the "router param" and "job specific param".
+`Select` function accept "trigger param" and "select param" as
+arguments. "trigger param" is passed from the trigger and "select
+param" is from the job.
 The returned boolean value determines whether to proceed.
 
 
@@ -404,3 +404,5 @@ h.AddRouterJob("router_name", "job3_name", "executor2_name", selectParam3, jobPa
 
 The job names in the same router must be all different.
 Type of both `selectParam` and `jobParam` are `map[string]interface{}`.
+The select param will be passed to selector and job param to the
+executor.
