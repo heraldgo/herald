@@ -28,10 +28,3 @@ func deepCopyMapParam(param map[string]interface{}) map[string]interface{} {
 	paramNew, _ := deepCopyParam(param).(map[string]interface{})
 	return paramNew
 }
-
-// mergeMapParam merges the two maps
-func mergeMapParam(mapOrigin, mapNew map[string]interface{}) {
-	for k, v := range mapNew {
-		mapOrigin[k] = deepCopyParam(v)
-	}
-}
