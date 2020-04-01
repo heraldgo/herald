@@ -107,7 +107,7 @@ func (exe *printParam) Execute(param map[string]interface{}) map[string]interfac
 // all selector pass all conditions
 type all struct{}
 
-func (slt *all) Select(triggerParam, jobParam map[string]interface{}) bool {
+func (slt *all) Select(triggerParam, selectParam map[string]interface{}) bool {
 	return true
 }
 
@@ -284,10 +284,11 @@ they will run in different goroutines.
 It is better to create a new instance for the new trigger name.
 
 > `exe_done` is the only predefined trigger which will be activated when an
-> execution is done. The result of the executor is used as "trigger param",
-> which could be passed to selector and executor.
-> Do **NOT** register your trigger with name `exe_done`, which will overwrite
-> the internal one.
+> execution is done. The result of the executor and job information
+> are combined as "trigger param",
+> which could be defined in router, then passed to selector and executor.
+> Do not register your trigger with name `exe_done`, which will be
+> considered as an error.
 
 
 ## Selector
@@ -301,7 +302,7 @@ activation for the tick trigger.
 ```go
 type even struct{}
 
-func (slt *even) Select(triggerParam, jobParam map[string]interface{}) bool {
+func (slt *even) Select(triggerParam, selectParam map[string]interface{}) bool {
 	if triggerParam["counter"].(int) % 2 == 0 {
 		return true
 	}
@@ -344,7 +345,9 @@ router: router_name
 trigger: trigger_name
 selector: selector_name
 job: job_name
+executor: executor_name
 trigger_param: map[string]interface{}
+select_param: map[string]interface{}
 job_param: map[string]interface{}
 ```
 
@@ -367,49 +370,37 @@ This is what a router looks like:
 trigger: trigger_name
 selector: selector_name
 job:
-  job1_name: executor1_name
-  job2_name: executor1_name
-  job3_name: executor2_name
-router_param:
-  key1: value1
-  key2: value2
+  job1_name:
+    executor: executor1_name
+    select_param: select_param1
+    job_param: job_param1
+  job2_name:
+    executor: executor1_name
+    select_param: select_param2
+    job_param: job_param2
+  job3_name:
+    executor: executor2_name
+    select_param: select_param3
+    job_param: job_param3
 ```
 
 Register a router to herald:
 
 ```go
-h.RegisterRouter("router_name", "trigger_name", "selector_name", routerParam)
+h.RegisterRouter("router_name", "trigger_name", "selector_name")
 ```
-
-Add jobs to the router and specify the executor:
-
-```go
-h.AddRouterJob("router_name", "job1_name", "executor1_name")
-h.AddRouterJob("router_name", "job2_name", "executor1_name")
-h.AddRouterJob("router_name", "job3_name", "executor2_name")
-```
-
-The job names in the same router must be all different.
 
 
 ## Job
 
-A job defines the job param which will be passed to an selector or executor.
-It is created when executing `AddRouterJob`:
+Add jobs to the router and specify the executor, select param and job
+param:
 
 ```go
-h.AddRouterJob("router_name", "job_name", "executor_name")
+h.AddRouterJob("router_name", "job1_name", "executor1_name", selectParam1, jobParam1)
+h.AddRouterJob("router_name", "job2_name", "executor1_name", selectParam2, jobParam2)
+h.AddRouterJob("router_name", "job3_name", "executor2_name", selectParam3, jobParam3)
 ```
 
-The "job param" is the combination of the "router param" and "job specific param".
-In case there are conflicts, the "job specific param" has higher
-priority.
-
-The "job specific param" is optional. It is set by:
-
-```go
-h.SetJobParam("job_name", jobSpecParam)
-```
-
-The same job name could be used among different routers, which will
-share the same "job specific param".
+The job names in the same router must be all different.
+Type of both `selectParam` and `jobParam` are `map[string]interface{}`.

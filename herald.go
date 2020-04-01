@@ -49,33 +49,34 @@ type Executor interface {
 
 // Selector will decide whether jobs should be executed.
 type Selector interface {
-	Select(triggerParam, jogParam map[string]interface{}) bool
+	Select(triggerParam, selectParam map[string]interface{}) bool
 }
 
 type job struct {
-	param map[string]interface{}
+	executor    string
+	selectParam map[string]interface{}
+	jobParam    map[string]interface{}
 }
 
 type router struct {
 	trigger  string
-	jobs     map[string]string
 	selector string
-	param    map[string]interface{}
+	jobs     map[string]*job
 }
 
 // Herald is the core struct.
 // Do not instantiate Herald explicitly.
 // Use New() function instead.
 type Herald struct {
-	logger    Logger
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	exeDone   chan map[string]interface{}
+	logger  Logger
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
+	exeDone chan map[string]interface{}
+
 	triggers  map[string]Trigger
 	executors map[string]Executor
 	selectors map[string]Selector
 	routers   map[string]*router
-	jobs      map[string]*job
 }
 
 func (h *Herald) debugf(f string, v ...interface{}) {
@@ -127,6 +128,9 @@ func (h *Herald) RegisterTrigger(name string, tgr Trigger) error {
 	if name == "" {
 		return errors.New("Trigger name could not be empty")
 	}
+	if name == triggerExecutionDoneName {
+		return errors.New("Trigger name could not be " + triggerExecutionDoneName)
+	}
 	if tgr == nil {
 		return errors.New("Trigger could not be nil")
 	}
@@ -166,7 +170,7 @@ func (h *Herald) RegisterSelector(name string, slt Selector) error {
 // The router defines the rule for executing the job.
 // When the trigger is activated, then try to use selector
 // to check whether to execute jobs.
-func (h *Herald) RegisterRouter(name, trigger, selector string, param map[string]interface{}) error {
+func (h *Herald) RegisterRouter(name, trigger, selector string) error {
 	if selector != "" {
 		_, ok := h.selectors[selector]
 		if !ok {
@@ -182,15 +186,14 @@ func (h *Herald) RegisterRouter(name, trigger, selector string, param map[string
 	h.routers[name] = &router{
 		trigger:  trigger,
 		selector: selector,
-		jobs:     make(map[string]string),
-		param:    deepCopyMapParam(param),
+		jobs:     make(map[string]*job),
 	}
 	return nil
 }
 
 // AddRouterJob will add a job to the router.
 // A job is assigned to an executor.
-func (h *Herald) AddRouterJob(routerName, jobName, executor string) error {
+func (h *Herald) AddRouterJob(routerName, jobName, executor string, selectParam, jobParam map[string]interface{}) error {
 	_, ok := h.routers[routerName]
 	if !ok {
 		return fmt.Errorf("Router does not exist : %s", routerName)
@@ -201,18 +204,10 @@ func (h *Herald) AddRouterJob(routerName, jobName, executor string) error {
 		return fmt.Errorf("Executor does not exist: %s", executor)
 	}
 
-	h.routers[routerName].jobs[jobName] = executor
-	return nil
-}
-
-// SetJobParam will set extra job specified param.
-// This job param is optional.
-func (h *Herald) SetJobParam(name string, param map[string]interface{}) error {
-	if name == "" {
-		return errors.New("Job name could not be empty")
-	}
-	h.jobs[name] = &job{
-		param: deepCopyMapParam(param),
+	h.routers[routerName].jobs[jobName] = &job{
+		executor:    executor,
+		selectParam: deepCopyMapParam(selectParam),
+		jobParam:    deepCopyMapParam(jobParam),
 	}
 	return nil
 }
@@ -273,19 +268,10 @@ func (h *Herald) start(ctx context.Context) {
 
 			h.debugf(`[:Herald:Router:%s:] Trigger "%s(%s)" matched`, routerName, triggerName, triggerID)
 
-			for jobName, executorName := range r.jobs {
+			for jobName, j := range r.jobs {
 				if r.selector == "" {
 					h.debugf(`[:Herald:Router:%s:] Selector does not exist`, routerName)
 					continue
-				}
-
-				jobParam := make(map[string]interface{})
-				// Add router param to job param
-				mergeMapParam(jobParam, r.param)
-				// Add job specific param to job param
-				jobSpecParam, ok := h.jobs[jobName]
-				if ok {
-					mergeMapParam(jobParam, jobSpecParam.param)
 				}
 
 				// selector
@@ -294,7 +280,7 @@ func (h *Herald) start(ctx context.Context) {
 					h.errorf(`[:Herald:Router:%s:] Selector "%s" does not exist`, routerName, r.selector)
 					continue
 				}
-				if !slt.Select(deepCopyMapParam(triggerParam), deepCopyMapParam(jobParam)) {
+				if !slt.Select(deepCopyMapParam(triggerParam), deepCopyMapParam(j.selectParam)) {
 					continue
 				}
 				h.debugf(`[:Herald:Router:%s:] Selector "%s" accepts trigger "%s(%s)" for job "%s"`,
@@ -305,17 +291,18 @@ func (h *Herald) start(ctx context.Context) {
 				exeParam := map[string]interface{}{
 					"id":            jobID,
 					"trigger_id":    triggerID,
-					"trigger":       triggerName,
 					"router":        routerName,
-					"job":           jobName,
+					"trigger":       triggerName,
 					"selector":      r.selector,
-					"executor":      executorName,
+					"job":           jobName,
+					"executor":      j.executor,
 					"trigger_param": deepCopyMapParam(triggerParam),
-					"job_param":     deepCopyMapParam(jobParam),
+					"select_param":  deepCopyMapParam(j.selectParam),
+					"job_param":     deepCopyMapParam(j.jobParam),
 				}
 
 				h.infof(`[:Herald:Router:%s:] Execute job "%s(%s)" with executor "%s"`,
-					routerName, jobName, jobID, executorName)
+					routerName, jobName, jobID, j.executor)
 				h.wg.Add(1)
 				go func(exe Executor) {
 					defer h.wg.Done()
@@ -332,7 +319,7 @@ func (h *Herald) start(ctx context.Context) {
 						case h.exeDone <- resultMap:
 						}
 					}
-				}(h.executors[executorName])
+				}(h.executors[j.executor])
 			}
 		}
 	}
@@ -383,7 +370,6 @@ func New(logger Logger) *Herald {
 		executors: make(map[string]Executor),
 		selectors: make(map[string]Selector),
 		routers:   make(map[string]*router),
-		jobs:      make(map[string]*job),
 	}
 	h.RegisterTrigger(triggerExecutionDoneName, &executionDone{
 		exeResult: h.exeDone,

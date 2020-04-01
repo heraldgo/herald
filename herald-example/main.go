@@ -94,11 +94,11 @@ func newHerald() *herald.Herald {
 
 	h.RegisterSelector("skip", &skip{})
 
-	h.RegisterRouter("skip_test", "tick", "skip", map[string]interface{}{
-		"skip_number": 2,
-	})
+	h.RegisterRouter("skip_test", "tick", "skip")
 
-	h.AddRouterJob("skip_test", "print", "print")
+	h.AddRouterJob("skip_test", "print_job", "print", map[string]interface{}{
+		"skip_number": 2,
+	}, nil)
 
 	return h
 }
