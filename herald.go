@@ -363,16 +363,18 @@ func (h *Herald) Stop() {
 // A Logger interface could be passed as argument to log the herald status.
 // If no output is needed, just pass nil.
 func New(logger Logger) *Herald {
+	exeResultChan := make(chan map[string]interface{})
 	h := &Herald{
-		logger:    logger,
-		exeDone:   make(chan map[string]interface{}),
-		triggers:  make(map[string]Trigger),
+		logger:  logger,
+		exeDone: exeResultChan,
+		triggers: map[string]Trigger{
+			triggerExecutionDoneName: &executionDone{
+				exeResult: exeResultChan,
+			},
+		},
 		executors: make(map[string]Executor),
 		selectors: make(map[string]Selector),
 		routers:   make(map[string]*router),
 	}
-	h.RegisterTrigger(triggerExecutionDoneName, &executionDone{
-		exeResult: h.exeDone,
-	})
 	return h
 }
