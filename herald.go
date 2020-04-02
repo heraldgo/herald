@@ -268,7 +268,7 @@ func (h *Herald) start(ctx context.Context) {
 
 			h.debugf(`[:Herald:Router:%s:] Trigger "%s(%s)" matched`, routerName, triggerName, triggerID)
 
-			for taskName, j := range r.tasks {
+			for taskName, t := range r.tasks {
 				if r.selector == "" {
 					h.debugf(`[:Herald:Router:%s:] Selector does not exist`, routerName)
 					continue
@@ -280,7 +280,7 @@ func (h *Herald) start(ctx context.Context) {
 					h.errorf(`[:Herald:Router:%s:] Selector "%s" does not exist`, routerName, r.selector)
 					continue
 				}
-				if !slt.Select(deepCopyMapParam(triggerParam), deepCopyMapParam(j.selectParam)) {
+				if !slt.Select(deepCopyMapParam(triggerParam), deepCopyMapParam(t.selectParam)) {
 					continue
 				}
 				h.debugf(`[:Herald:Router:%s:] Selector "%s" accepts trigger "%s(%s)" for task "%s"`,
@@ -295,14 +295,14 @@ func (h *Herald) start(ctx context.Context) {
 					"trigger":       triggerName,
 					"selector":      r.selector,
 					"task":          taskName,
-					"executor":      j.executor,
+					"executor":      t.executor,
 					"trigger_param": deepCopyMapParam(triggerParam),
-					"select_param":  deepCopyMapParam(j.selectParam),
-					"job_param":     deepCopyMapParam(j.jobParam),
+					"select_param":  deepCopyMapParam(t.selectParam),
+					"job_param":     deepCopyMapParam(t.jobParam),
 				}
 
 				h.infof(`[:Herald:Router:%s:] Execute task "%s(%s)" with executor "%s"`,
-					routerName, taskName, jobID, j.executor)
+					routerName, taskName, jobID, t.executor)
 				h.wg.Add(1)
 				go func(exe Executor) {
 					defer h.wg.Done()
@@ -319,7 +319,7 @@ func (h *Herald) start(ctx context.Context) {
 						case h.exeDone <- resultMap:
 						}
 					}
-				}(h.executors[j.executor])
+				}(h.executors[t.executor])
 			}
 		}
 	}
