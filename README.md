@@ -24,7 +24,7 @@ Herald consists of the following components:
 * Selector
 * Executor
 * Router
-* Job
+* Task
 
 The core logic for herald is simple.
 The routers define when (trigger, selector) and
@@ -121,7 +121,7 @@ func newHerald() *herald.Herald {
 	h.RegisterSelector("all", &all{})
 
 	h.RegisterRouter("tick_test", "tick", "all")
-	h.AddRouterJob("tick_test", "print_it", "print", nil, nil)
+	h.AddRouterTask("tick_test", "print_it", "print", nil, nil)
 
 	return h
 }
@@ -284,17 +284,17 @@ they will run in different goroutines.
 It is better to create a new instance for the new trigger name.
 
 > `exe_done` is the only predefined trigger which will be activated when an
-> execution is done. The result of the executor and job information
-> are combined as "trigger param",
-> which could be defined in router, then passed to selector and executor.
+> execution is done. `exe_done` could be specified in router,
+> with "trigger param" from the combination of last execution result and
+> job information, then passed to selector and executor.
 > Do not register your trigger with name `exe_done`, which will be
 > considered as an error.
 
 
 ## Selector
 
-A selector will filter out from the "trigger param" to determine whether
-or not to run the following jobs.
+A selector will check the "trigger param" to determine whether
+or not to run the following tasks. It is defined as an interface.
 
 This is an example of selector which will only accept the even number of
 activation for the tick trigger.
@@ -316,13 +316,14 @@ func (slt *even) Select(triggerParam, selectParam map[string]interface{}) bool {
 The `Select` function must be implemented in the selector.
 `Select` function accept "trigger param" and "select param" as
 arguments. "trigger param" is passed from the trigger and "select
-param" is from the job.
+param" is from the task.
 The returned boolean value determines whether to proceed.
 
 
 ## Executor
 
 An executor will execute the job according to "param".
+It is also an interface.
 
 This is an example of executor which will just print the param.
 
@@ -344,7 +345,7 @@ trigger_id: A8D875BC-5875-3BA7-EECB-F829A341F78E
 router: router_name
 trigger: trigger_name
 selector: selector_name
-job: job_name
+task: task_name
 executor: executor_name
 trigger_param: map[string]interface{}
 select_param: map[string]interface{}
@@ -362,23 +363,23 @@ The returned map value of `Execute` will be used as the
 
 The routers define when (trigger, selector) and
 how (executor) to execute certain jobs.
-One router includes a trigger, a selector, jobs and params.
+One router includes a trigger, a selector, tasks and params.
 
 This is what a router looks like:
 
 ```
 trigger: trigger_name
 selector: selector_name
-job:
-  job1_name:
+task:
+  task1_name:
     executor: executor1_name
     select_param: select_param1
     job_param: job_param1
-  job2_name:
+  task2_name:
     executor: executor1_name
     select_param: select_param2
     job_param: job_param2
-  job3_name:
+  task3_name:
     executor: executor2_name
     select_param: select_param3
     job_param: job_param3
@@ -391,18 +392,18 @@ h.RegisterRouter("router_name", "trigger_name", "selector_name")
 ```
 
 
-## Job
+## Task
 
-Add jobs to the router and specify the executor, select param and job
-param:
+Add tasks to the router and specify the executor,
+select param and job param:
 
 ```go
-h.AddRouterJob("router_name", "job1_name", "executor1_name", selectParam1, jobParam1)
-h.AddRouterJob("router_name", "job2_name", "executor1_name", selectParam2, jobParam2)
-h.AddRouterJob("router_name", "job3_name", "executor2_name", selectParam3, jobParam3)
+h.AddRouterTask("router_name", "task1_name", "executor1_name", selectParam1, jobParam1)
+h.AddRouterTask("router_name", "task2_name", "executor1_name", selectParam2, jobParam2)
+h.AddRouterTask("router_name", "task3_name", "executor2_name", selectParam3, jobParam3)
 ```
 
-The job names in the same router must be all different.
+The task names in the same router must be all different.
 Type of both `selectParam` and `jobParam` are `map[string]interface{}`.
 The select param will be passed to selector and job param to the
 executor.
