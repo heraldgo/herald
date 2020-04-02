@@ -24,13 +24,12 @@ Herald consists of the following components:
 * Selector
 * Executor
 * Router
-* Task
 
 The core logic for herald is simple.
 The routers define when (trigger, selector) and
-how (executor) to execute certain jobs.
+how (executor) to execute certain tasks.
 When a specific trigger is actived, then the selector will check
-whether it is OK to execute subsequent jobs.
+whether it is OK to execute subsequent tasks.
 
 Herald does not provide implementation for trigger, selector and executor.
 They are defined as interfaces and should be provided in your application.
@@ -294,7 +293,7 @@ It is better to create a new instance for the new trigger name.
 ## Selector
 
 A selector will check the "trigger param" to determine whether
-or not to run the following tasks. It is defined as an interface.
+or not to run the following tasks.
 
 This is an example of selector which will only accept the even number of
 activation for the tick trigger.
@@ -323,7 +322,6 @@ The returned boolean value determines whether to proceed.
 ## Executor
 
 An executor will execute the job according to "param".
-It is also an interface.
 
 This is an example of executor which will just print the param.
 
@@ -362,7 +360,7 @@ The returned map value of `Execute` will be used as the
 ## Router
 
 The routers define when (trigger, selector) and
-how (executor) to execute certain jobs.
+how (executor) to execute certain tasks.
 One router includes a trigger, a selector, tasks and params.
 
 This is what a router looks like:
@@ -392,7 +390,7 @@ h.RegisterRouter("router_name", "trigger_name", "selector_name")
 ```
 
 
-## Task
+### Task
 
 Add tasks to the router and specify the executor,
 select param and job param:
