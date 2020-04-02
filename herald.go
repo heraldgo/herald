@@ -301,8 +301,8 @@ func (h *Herald) start(ctx context.Context) {
 					"job_param":     deepCopyMapParam(t.jobParam),
 				}
 
-				h.infof(`[:Herald:Router:%s:] Execute task "%s(%s)" with executor "%s"`,
-					routerName, taskName, jobID, t.executor)
+				h.infof(`[:Herald:Router:%s:] Execute task "%s" with executor "%s", job ID: %s`,
+					routerName, taskName, t.executor, jobID)
 				h.wg.Add(1)
 				go func(exe Executor) {
 					defer h.wg.Done()
