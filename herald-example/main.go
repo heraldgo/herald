@@ -96,7 +96,7 @@ func newHerald() *herald.Herald {
 
 	h.RegisterRouter("skip_test", "tick", "skip")
 
-	h.AddRouterJob("skip_test", "print_job", "print", map[string]interface{}{
+	h.AddRouterTask("skip_test", "print_job", "print", map[string]interface{}{
 		"skip_number": 2,
 	}, nil)
 

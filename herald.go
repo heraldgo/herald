@@ -52,7 +52,7 @@ type Selector interface {
 	Select(triggerParam, selectParam map[string]interface{}) bool
 }
 
-type job struct {
+type task struct {
 	executor    string
 	selectParam map[string]interface{}
 	jobParam    map[string]interface{}
@@ -61,7 +61,7 @@ type job struct {
 type router struct {
 	trigger  string
 	selector string
-	jobs     map[string]*job
+	tasks    map[string]*task
 }
 
 // Herald is the core struct.
@@ -186,14 +186,14 @@ func (h *Herald) RegisterRouter(name, trigger, selector string) error {
 	h.routers[name] = &router{
 		trigger:  trigger,
 		selector: selector,
-		jobs:     make(map[string]*job),
+		tasks:    make(map[string]*task),
 	}
 	return nil
 }
 
-// AddRouterJob will add a job to the router.
-// A job is assigned to an executor.
-func (h *Herald) AddRouterJob(routerName, jobName, executor string, selectParam, jobParam map[string]interface{}) error {
+// AddRouterTask will add a task to the router.
+// A task is assigned to an executor with select param and job param.
+func (h *Herald) AddRouterTask(routerName, taskName, executor string, selectParam, jobParam map[string]interface{}) error {
 	_, ok := h.routers[routerName]
 	if !ok {
 		return fmt.Errorf("Router does not exist : %s", routerName)
@@ -204,7 +204,7 @@ func (h *Herald) AddRouterJob(routerName, jobName, executor string, selectParam,
 		return fmt.Errorf("Executor does not exist: %s", executor)
 	}
 
-	h.routers[routerName].jobs[jobName] = &job{
+	h.routers[routerName].tasks[taskName] = &task{
 		executor:    executor,
 		selectParam: deepCopyMapParam(selectParam),
 		jobParam:    deepCopyMapParam(jobParam),
@@ -268,7 +268,7 @@ func (h *Herald) start(ctx context.Context) {
 
 			h.debugf(`[:Herald:Router:%s:] Trigger "%s(%s)" matched`, routerName, triggerName, triggerID)
 
-			for jobName, j := range r.jobs {
+			for taskName, j := range r.tasks {
 				if r.selector == "" {
 					h.debugf(`[:Herald:Router:%s:] Selector does not exist`, routerName)
 					continue
@@ -283,32 +283,32 @@ func (h *Herald) start(ctx context.Context) {
 				if !slt.Select(deepCopyMapParam(triggerParam), deepCopyMapParam(j.selectParam)) {
 					continue
 				}
-				h.debugf(`[:Herald:Router:%s:] Selector "%s" accepts trigger "%s(%s)" for job "%s"`,
-					routerName, r.selector, triggerName, triggerID, jobName)
+				h.debugf(`[:Herald:Router:%s:] Selector "%s" accepts trigger "%s(%s)" for task "%s"`,
+					routerName, r.selector, triggerName, triggerID, taskName)
 
 				// executor
 				jobID := pseudoUUID()
 				exeParam := map[string]interface{}{
-					"id":            jobID,
+					"job_id":        jobID,
 					"trigger_id":    triggerID,
 					"router":        routerName,
 					"trigger":       triggerName,
 					"selector":      r.selector,
-					"job":           jobName,
+					"task":          taskName,
 					"executor":      j.executor,
 					"trigger_param": deepCopyMapParam(triggerParam),
 					"select_param":  deepCopyMapParam(j.selectParam),
 					"job_param":     deepCopyMapParam(j.jobParam),
 				}
 
-				h.infof(`[:Herald:Router:%s:] Execute job "%s(%s)" with executor "%s"`,
-					routerName, jobName, jobID, j.executor)
+				h.infof(`[:Herald:Router:%s:] Execute task "%s(%s)" with executor "%s"`,
+					routerName, taskName, jobID, j.executor)
 				h.wg.Add(1)
 				go func(exe Executor) {
 					defer h.wg.Done()
 
 					result := exe.Execute(deepCopyMapParam(exeParam))
-					h.infof(`[:Herald:Job:%s:] Job "%s" finished`, exeParam["job"], exeParam["id"])
+					h.infof(`[:Herald:Task:%s:] Job "%s" finished`, exeParam["task"], exeParam["job_id"])
 
 					resultMap := deepCopyMapParam(exeParam)
 					resultMap["result"] = result
