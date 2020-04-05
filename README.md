@@ -98,9 +98,9 @@ func (tgr *tick) Run(ctx context.Context, sendParam func(map[string]interface{})
 // print executor just print the param
 type printParam struct{}
 
-func (exe *printParam) Execute(param map[string]interface{}) map[string]interface{} {
+func (exe *printParam) Execute(param map[string]interface{}) (map[string]interface{}, error) {
 	log.Printf("[Executor(Print)] Execute with param: %v", param)
-	return nil
+	return nil, nil
 }
 
 // all selector pass all conditions
@@ -328,9 +328,9 @@ This is an example of executor which will just print the param.
 ```go
 type printParam struct{}
 
-func (exe *printParam) Execute(param map[string]interface{}) map[string]interface{} {
+func (exe *printParam) Execute(param map[string]interface{}) (map[string]interface{}, error) {
 	log.Printf("Execute with param: %v", param)
-	return nil
+	return nil, nil
 }
 ```
 
@@ -352,6 +352,7 @@ job_param: map[string]interface{}
 
 The returned map value of `Execute` will be used as the
 "trigger param" of internal `exe_done` trigger.
+None nil error indicates that the job is failed.
 
 > Each job will be executed in a separated goroutine. Try not to modify
 > any variables outside the function for safety reason.
