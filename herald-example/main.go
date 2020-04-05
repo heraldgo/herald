@@ -59,9 +59,9 @@ type printParam struct {
 	logger herald.Logger
 }
 
-func (exe *printParam) Execute(param map[string]interface{}) map[string]interface{} {
+func (exe *printParam) Execute(param map[string]interface{}) (map[string]interface{}, error) {
 	exe.logger.Infof("[Executor(Print)] Execute with param: %v", param)
-	return nil
+	return nil, nil
 }
 
 // skip selector to skip certain numbers

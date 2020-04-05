@@ -44,7 +44,7 @@ func (tgr *executionDone) Run(ctx context.Context, sendParam func(map[string]int
 
 // Executor will execute the job according to the param argument.
 type Executor interface {
-	Execute(param map[string]interface{}) map[string]interface{}
+	Execute(param map[string]interface{}) (map[string]interface{}, error)
 }
 
 // Selector will decide whether jobs should be executed.
@@ -301,17 +301,29 @@ func (h *Herald) start(ctx context.Context) {
 					"job_param":     deepCopyMapParam(t.jobParam),
 				}
 
-				h.infof(`[:Herald:Router:%s:] Execute task "%s" with executor "%s", job ID: %s`,
-					routerName, taskName, t.executor, jobID)
+				h.infof(`[:Herald:Router:%s:] Task "%s" job "%s" start to run on executor "%s"`,
+					routerName, taskName, jobID, t.executor)
 				h.wg.Add(1)
 				go func(exe Executor) {
 					defer h.wg.Done()
 
-					result := exe.Execute(deepCopyMapParam(exeParam))
-					h.infof(`[:Herald:Task:%s:] Job "%s" finished`, exeParam["task"], exeParam["job_id"])
+					result, err := exe.Execute(deepCopyMapParam(exeParam))
+					if err != nil {
+						h.errorf(`[:Herald:Router:%s:] Task "%s" Job "%s" finished with error: %s`,
+							exeParam["router"], exeParam["task"], exeParam["job_id"], err)
+					} else {
+						h.infof(`[:Herald:Router:%s:] Task "%s" Job "%s" finished successfully`,
+							exeParam["router"], exeParam["task"], exeParam["job_id"])
+					}
 
 					resultMap := deepCopyMapParam(exeParam)
 					resultMap["result"] = result
+					if err != nil {
+						resultMap["success"] = false
+						resultMap["error"] = err.Error()
+					} else {
+						resultMap["success"] = true
+					}
 
 					if h.exeDone != nil {
 						select {

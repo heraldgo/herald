@@ -1,4 +1,4 @@
 package herald
 
 // Version for herald framework.
-const Version = "1.5.2"
+const Version = "1.6.0"
