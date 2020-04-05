@@ -301,7 +301,7 @@ func (h *Herald) start(ctx context.Context) {
 					"job_param":     deepCopyMapParam(t.jobParam),
 				}
 
-				h.infof(`[:Herald:Router:%s:] Task "%s" job "%s" start to run on executor "%s"`,
+				h.infof(`[:Herald:Router:%s:] Task "%s" job "%s" started on executor "%s"`,
 					routerName, taskName, jobID, t.executor)
 				h.wg.Add(1)
 				go func(exe Executor) {
